@@ -1,28 +1,30 @@
 use crate::commands::fs::{read_audio_metadata, Track};
 use std::fs;
 use std::path::{Path, PathBuf};
+use walkdir::WalkDir;
 
 #[tauri::command]
 pub async fn list_playlists(root: String) -> Result<Vec<String>, String> {
-    let playlists_dir = Path::new(&root).join("Playlists");
+    let root_path = Path::new(&root);
 
+    // Ensure the dedicated Playlists directory exists for user-created playlists
+    let playlists_dir = root_path.join("Playlists");
     if !playlists_dir.exists() {
         fs::create_dir_all(&playlists_dir)
             .map_err(|e| format!("Failed to create Playlists directory: {}", e))?;
-        return Ok(vec![]);
     }
 
-    let entries = fs::read_dir(&playlists_dir)
-        .map_err(|e| format!("Failed to read Playlists directory: {}", e))?;
-
+    // Recursively scan the entire root for m3u / m3u8 files
     let mut playlists = Vec::new();
-    for entry in entries.filter_map(|e| e.ok()) {
+    for entry in WalkDir::new(root_path)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.file_type().is_file())
+    {
         let path = entry.path();
-        if path.is_file() {
-            if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
-                if ext.eq_ignore_ascii_case("m3u8") || ext.eq_ignore_ascii_case("m3u") {
-                    playlists.push(path.to_string_lossy().to_string());
-                }
+        if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+            if ext.eq_ignore_ascii_case("m3u8") || ext.eq_ignore_ascii_case("m3u") {
+                playlists.push(path.to_string_lossy().to_string());
             }
         }
     }
