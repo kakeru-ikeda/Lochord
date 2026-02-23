@@ -1,4 +1,5 @@
-import React, { useState } from "react";import { useLochordStore } from "../../../application/store/useLochordStore";
+import { useState } from "react";
+import { useLochordStore } from "../../../application/store/useLochordStore";
 import { playlistNameFromPath } from "../../../domain/rules/m3uPathResolver";
 import { Music, Plus, Trash2 } from "lucide-react";
 
