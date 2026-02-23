@@ -28,21 +28,47 @@ pub async fn select_music_root(app: AppHandle) -> Result<Option<String>, String>
 }
 
 #[tauri::command]
-pub async fn scan_music_directory(path: String) -> Result<Vec<Track>, String> {
+pub async fn select_directory(app: AppHandle) -> Result<Option<String>, String> {
+    let path = app
+        .dialog()
+        .file()
+        .blocking_pick_folder();
+
+    Ok(path.map(|p| p.to_string()))
+}
+
+#[tauri::command]
+pub async fn scan_music_directory(
+    path: String,
+    extensions: Option<Vec<String>>,
+    exclude_patterns: Option<Vec<String>>,
+) -> Result<Vec<Track>, String> {
     let root = Path::new(&path);
     if !root.exists() {
         return Err(format!("Path does not exist: {}", path));
     }
+
+    let allowed_exts: Vec<String> = extensions
+        .unwrap_or_else(|| MUSIC_EXTENSIONS.iter().map(|s| s.to_string()).collect());
+    let exclude = exclude_patterns.unwrap_or_default();
 
     let mut tracks = Vec::new();
 
     for entry in WalkDir::new(root)
         .into_iter()
         .filter_entry(|e| {
-            // Skip the Playlists directory to avoid traversing M3U8 files
             if e.file_type().is_dir() {
                 let name = e.file_name().to_string_lossy();
-                return name != "Playlists";
+                // Skip the Playlists directory to avoid traversing M3U8 files
+                if name == "Playlists" {
+                    return false;
+                }
+                // Skip user-defined exclude patterns
+                for pattern in &exclude {
+                    if name.to_lowercase().contains(&pattern.to_lowercase()) {
+                        return false;
+                    }
+                }
             }
             true
         })
@@ -56,7 +82,7 @@ pub async fn scan_music_directory(path: String) -> Result<Vec<Track>, String> {
             .map(|e| e.to_lowercase());
 
         if let Some(ext) = ext {
-            if MUSIC_EXTENSIONS.contains(&ext.as_str()) {
+            if allowed_exts.iter().any(|e| e.eq_ignore_ascii_case(&ext)) {
                 let track = build_track(file_path, root);
                 tracks.push(track);
             }

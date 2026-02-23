@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLochordStore } from "../../../application/store/useLochordStore";
 import { playlistNameFromPath } from "../../../domain/rules/m3uPathResolver";
+import { ConfirmDialog } from "../ConfirmDialog/ConfirmDialog";
 import { Music, Plus, Trash2 } from "lucide-react";
 
 export function PlaylistPanel() {
@@ -12,6 +13,7 @@ export function PlaylistPanel() {
 
   const [isCreating, setIsCreating] = useState(false);
   const [newName, setNewName] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<{ path: string; name: string } | null>(null);
 
   const handleCreate = async () => {
     if (newName.trim()) {
@@ -26,6 +28,13 @@ export function PlaylistPanel() {
     if (e.key === "Escape") {
       setIsCreating(false);
       setNewName("");
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (deleteTarget) {
+      await deletePlaylist(deleteTarget.path);
+      setDeleteTarget(null);
     }
   };
 
@@ -50,14 +59,15 @@ export function PlaylistPanel() {
               className={`playlist-item ${isSelected ? "selected" : ""}`}
               onClick={() => selectPlaylist(pl.path)}
             >
-              <span className="playlist-item-name">{name}</span>
+              <span className="playlist-item-name">
+                {name}
+                {pl.isDirty && <span className="playlist-dirty-dot">●</span>}
+              </span>
               <button
                 className="playlist-item-delete"
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (confirm(`「${name}」を削除しますか？`)) {
-                    deletePlaylist(pl.path);
-                  }
+                  setDeleteTarget({ path: pl.path, name });
                 }}
                 title="削除"
               >
@@ -92,6 +102,18 @@ export function PlaylistPanel() {
           </button>
         )}
       </div>
+
+      {/* Delete confirmation dialog */}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="プレイリストを削除しますか？"
+        message={`「${deleteTarget?.name ?? ""}」を削除します。この操作は元に戻せません。`}
+        confirmLabel="削除"
+        cancelLabel="キャンセル"
+        danger
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

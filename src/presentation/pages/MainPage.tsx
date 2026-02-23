@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   DndContext,
   DragEndEvent,
@@ -11,7 +11,8 @@ import { useLochordStore } from "../../application/store/useLochordStore";
 import { PlaylistPanel } from "../components/PlaylistPanel/PlaylistPanel";
 import { TrackList } from "../components/TrackList/TrackList";
 import { LibraryBrowser } from "../components/LibraryBrowser/LibraryBrowser";
-import { FolderOpen, Music, X } from "lucide-react";
+import { SettingsModal } from "../components/SettingsModal/SettingsModal";
+import { FolderOpen, Music, Settings, X } from "lucide-react";
 
 export function MainPage() {
   const musicRoot = useLochordStore((s) => s.musicRoot);
@@ -19,8 +20,12 @@ export function MainPage() {
   const scanLibrary = useLochordStore((s) => s.scanLibrary);
   const selectMusicRoot = useLochordStore((s) => s.selectMusicRoot);
   const addTrackToPlaylist = useLochordStore((s) => s.addTrackToPlaylist);
+  const saveCurrentPlaylist = useLochordStore((s) => s.saveCurrentPlaylist);
+  const createPlaylist = useLochordStore((s) => s.createPlaylist);
   const errorMessage = useLochordStore((s) => s.errorMessage);
   const clearError = useLochordStore((s) => s.clearError);
+
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
     if (musicRoot) {
@@ -29,6 +34,39 @@ export function MainPage() {
     }
     // Zustand actions are stable references - safe to include in deps
   }, [musicRoot, scanLibrary, loadPlaylists]);
+
+  // Keyboard shortcuts
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      // Ctrl+S / Cmd+S — save playlist
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        e.preventDefault();
+        saveCurrentPlaylist();
+      }
+      // Ctrl+N / Cmd+N — new playlist (prompt)
+      if ((e.ctrlKey || e.metaKey) && e.key === "n") {
+        e.preventDefault();
+        const name = prompt("新しいプレイリスト名:");
+        if (name?.trim()) createPlaylist(name.trim());
+      }
+      // F5 — rescan library
+      if (e.key === "F5") {
+        e.preventDefault();
+        scanLibrary();
+      }
+      // , (comma) — open settings
+      if (e.key === "," && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        setSettingsOpen(true);
+      }
+    },
+    [saveCurrentPlaylist, createPlaylist, scanLibrary]
+  );
+
+  useEffect(() => {
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleKeyDown]);
 
   const sensors = useSensors(useSensor(PointerSensor));
 
@@ -52,14 +90,23 @@ export function MainPage() {
               📂 {musicRoot}
             </span>
           )}
-          <button
-            className="change-dir-btn"
-            onClick={selectMusicRoot}
-            title="音楽フォルダを変更"
-          >
-            <FolderOpen size={14} />
-            フォルダ変更
-          </button>
+          <div className="app-header-actions">
+            <button
+              className="change-dir-btn"
+              onClick={selectMusicRoot}
+              title="音楽フォルダを変更"
+            >
+              <FolderOpen size={14} />
+              フォルダ変更
+            </button>
+            <button
+              className="settings-btn"
+              onClick={() => setSettingsOpen(true)}
+              title="設定 (Ctrl+,)"
+            >
+              <Settings size={16} />
+            </button>
+          </div>
         </header>
 
         {/* Body */}
@@ -91,6 +138,9 @@ export function MainPage() {
         )}
       </div>
       <DragOverlay />
+
+      {/* Settings modal */}
+      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </DndContext>
   );
 }

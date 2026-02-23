@@ -70,6 +70,11 @@ export function TrackList() {
 
   const selectedPlaylist = playlists.find((p) => p.path === selectedPlaylistPath);
   const tracks = selectedPlaylist?.tracks ?? [];
+  const isDirty = selectedPlaylist?.isDirty ?? false;
+
+  // Compute total duration
+  const totalSeconds = tracks.reduce((sum, t) => sum + (t.duration > 0 ? t.duration : 0), 0);
+  const totalDuration = formatDuration(totalSeconds);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -100,8 +105,20 @@ export function TrackList() {
   return (
     <div className="tracklist">
       <div className="tracklist-header">
-        <h2 className="tracklist-title">{playlistName}</h2>
-        <button className="save-btn" onClick={saveCurrentPlaylist}>
+        <div className="tracklist-header-left">
+          <h2 className="tracklist-title">{playlistName}</h2>
+          {isDirty && <span className="tracklist-dirty-badge">●未保存</span>}
+          {tracks.length > 0 && (
+            <span className="tracklist-stats">
+              {tracks.length}曲 / {totalDuration}
+            </span>
+          )}
+        </div>
+        <button
+          className={`save-btn ${isDirty ? "save-btn-dirty" : ""}`}
+          onClick={saveCurrentPlaylist}
+          title="保存 (Ctrl+S)"
+        >
           <Save size={14} /> 保存
         </button>
       </div>

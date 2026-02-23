@@ -2,6 +2,7 @@ import { Track } from "../../domain/entities/Track";
 import { Playlist } from "../../domain/entities/Playlist";
 import { scanMusicDirectory, selectMusicRoot } from "../../infrastructure/tauri/fileSystemAdapter";
 import { PlaylistRepository } from "../../infrastructure/repositories/PlaylistRepository";
+import { useSettingsStore } from "./useSettingsStore";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
@@ -38,6 +39,25 @@ interface LochordState {
   clearError: () => void;
 }
 
+/** Helper: auto-save if enabled */
+function maybeAutoSave(get: () => LochordState) {
+  const { autoSave } = useSettingsStore.getState().settings;
+  if (autoSave) {
+    // Fire-and-forget save
+    get().saveCurrentPlaylist();
+  }
+}
+
+/** Build save options from current settings */
+function buildSaveOptions(musicRoot: string | null) {
+  const { settings } = useSettingsStore.getState();
+  return {
+    path_mode: settings.pathMode,
+    music_root: musicRoot,
+    format: settings.saveExtension,
+  };
+}
+
 export const useLochordStore = create<LochordState>()(
   persist(
     (set, get) => ({
@@ -71,7 +91,8 @@ export const useLochordStore = create<LochordState>()(
         if (!musicRoot) return;
         set({ isScanning: true, scanError: null });
         try {
-          const tracks = await scanMusicDirectory(musicRoot);
+          const { scanExtensions, excludePatterns } = useSettingsStore.getState().settings;
+          const tracks = await scanMusicDirectory(musicRoot, scanExtensions, excludePatterns);
           set({ libraryTracks: tracks, isScanning: false });
         } catch (e) {
           set({
@@ -86,7 +107,11 @@ export const useLochordStore = create<LochordState>()(
         const { musicRoot, playlists: existing } = get();
         if (!musicRoot) return;
         try {
-          const paths = await repo.listPlaylists(musicRoot);
+          // Pass the resolved playlistDir so list_playlists can find playlists
+          // saved in a custom directory or with non-m3u extensions
+          const { resolvePlaylistDir } = useSettingsStore.getState();
+          const playlistDir = resolvePlaylistDir(musicRoot);
+          const paths = await repo.listPlaylists(musicRoot, playlistDir);
           const updatedPlaylists = await Promise.all(
             paths.map(async (p) => {
               // Check if we already have this playlist loaded in memory
@@ -94,9 +119,9 @@ export const useLochordStore = create<LochordState>()(
               if (found) return found;
               try {
                 const tracks = await repo.loadPlaylist(p);
-                return repo.buildPlaylist(p, tracks);
+                return { ...repo.buildPlaylist(p, tracks), isDirty: false };
               } catch {
-                return repo.buildPlaylist(p, []);
+                return { ...repo.buildPlaylist(p, []), isDirty: false };
               }
             })
           );
@@ -116,7 +141,7 @@ export const useLochordStore = create<LochordState>()(
           set({
             selectedPlaylistPath: path,
             playlists: playlists.map((p) =>
-              p.path === path ? { ...p, tracks } : p
+              p.path === path ? { ...p, tracks, isDirty: false } : p
             ),
           });
         } catch (e) {
@@ -132,18 +157,22 @@ export const useLochordStore = create<LochordState>()(
         if (!musicRoot) return;
         const safeName = name.trim();
         if (!safeName) return;
-        // Normalize path separator for cross-platform compatibility
-        const normalizedRoot = musicRoot.replace(/\\/g, "/");
-        const path = `${normalizedRoot}/Playlists/${safeName}.m3u8`;
+
+        const { resolvePlaylistDir } = useSettingsStore.getState();
+        const { saveExtension } = useSettingsStore.getState().settings;
+        const playlistDir = resolvePlaylistDir(musicRoot);
+        const ext = saveExtension;
+        const path = `${playlistDir}/${safeName}.${ext}`;
+
         // Check for duplicate (normalize all paths once for comparison)
         const existingPaths = playlists.map((p) => p.path.replace(/\\/g, "/"));
-        if (existingPaths.includes(path)) {
+        if (existingPaths.includes(path.replace(/\\/g, "/"))) {
           set({ errorMessage: `「${safeName}」という名前のプレイリストは既に存在します` });
           return;
         }
         try {
-          await repo.savePlaylist(path, []);
-          const newPlaylist = repo.buildPlaylist(path, []);
+          await repo.savePlaylist(path, [], buildSaveOptions(musicRoot));
+          const newPlaylist: Playlist = { ...repo.buildPlaylist(path, []), isDirty: false };
           set({
             playlists: [...playlists, newPlaylist],
             selectedPlaylistPath: path,
@@ -181,9 +210,10 @@ export const useLochordStore = create<LochordState>()(
               (t) => t.absolutePath === track.absolutePath
             );
             if (exists) return p;
-            return { ...p, tracks: [...p.tracks, track] };
+            return { ...p, tracks: [...p.tracks, track], isDirty: true };
           }),
         });
+        maybeAutoSave(get);
       },
 
       removeTrackFromPlaylist: (absolutePath) => {
@@ -195,9 +225,11 @@ export const useLochordStore = create<LochordState>()(
             return {
               ...p,
               tracks: p.tracks.filter((t) => t.absolutePath !== absolutePath),
+              isDirty: true,
             };
           }),
         });
+        maybeAutoSave(get);
       },
 
       reorderTracks: (tracks) => {
@@ -205,18 +237,28 @@ export const useLochordStore = create<LochordState>()(
         if (!selectedPlaylistPath) return;
         set({
           playlists: playlists.map((p) =>
-            p.path === selectedPlaylistPath ? { ...p, tracks } : p
+            p.path === selectedPlaylistPath ? { ...p, tracks, isDirty: true } : p
           ),
         });
+        maybeAutoSave(get);
       },
 
       saveCurrentPlaylist: async () => {
-        const { playlists, selectedPlaylistPath } = get();
+        const { playlists, selectedPlaylistPath, musicRoot } = get();
         if (!selectedPlaylistPath) return;
         const playlist = playlists.find((p) => p.path === selectedPlaylistPath);
         if (!playlist) return;
         try {
-          await repo.savePlaylist(playlist.path, playlist.tracks);
+          await repo.savePlaylist(
+            playlist.path,
+            playlist.tracks,
+            buildSaveOptions(musicRoot),
+          );
+          set({
+            playlists: playlists.map((p) =>
+              p.path === selectedPlaylistPath ? { ...p, isDirty: false } : p
+            ),
+          });
         } catch (e) {
           set({ errorMessage: `保存エラー: ${e}` });
         }

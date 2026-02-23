@@ -1,6 +1,6 @@
 mod commands;
 
-use commands::fs::{scan_music_directory, select_music_root};
+use commands::fs::{scan_music_directory, select_directory, select_music_root};
 use commands::m3u::{delete_playlist, list_playlists, load_playlist, save_playlist};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -10,6 +10,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .invoke_handler(tauri::generate_handler![
             select_music_root,
+            select_directory,
             scan_music_directory,
             list_playlists,
             load_playlist,

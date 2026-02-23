@@ -3,7 +3,7 @@ import { useDraggable } from "@dnd-kit/core";
 import { useLochordStore } from "../../../application/store/useLochordStore";
 import { Track } from "../../../domain/entities/Track";
 import { formatDuration } from "../../../domain/rules/m3uPathResolver";
-import { ChevronDown, ChevronRight, FolderOpen, Music, Plus, RefreshCw } from "lucide-react";
+import { ChevronDown, ChevronRight, FolderOpen, Music, Plus, RefreshCw, Search } from "lucide-react";
 
 interface AlbumGroup {
   folder: string;
@@ -82,16 +82,28 @@ export function LibraryBrowser() {
   const addTrackToPlaylist = useLochordStore((s) => s.addTrackToPlaylist);
   const selectedPlaylistPath = useLochordStore((s) => s.selectedPlaylistPath);
 
+  const [searchQuery, setSearchQuery] = useState("");
+
   const albumGroups = useMemo((): AlbumGroup[] => {
+    const query = searchQuery.toLowerCase();
+    const filtered = query
+      ? libraryTracks.filter(
+          (t) =>
+            t.title.toLowerCase().includes(query) ||
+            t.artist.toLowerCase().includes(query) ||
+            t.relativePath.toLowerCase().includes(query)
+        )
+      : libraryTracks;
+
     const map = new Map<string, Track[]>();
-    for (const track of libraryTracks) {
+    for (const track of filtered) {
       const parts = track.relativePath.replace(/\\/g, "/").split("/");
       const folder = parts.length > 1 ? parts.slice(0, -1).join("/") : "(root)";
       if (!map.has(folder)) map.set(folder, []);
       map.get(folder)!.push(track);
     }
     return Array.from(map.entries()).map(([folder, tracks]) => ({ folder, tracks }));
-  }, [libraryTracks]);
+  }, [libraryTracks, searchQuery]);
 
   const handleAdd = (track: Track) => {
     if (!selectedPlaylistPath) {
@@ -107,6 +119,16 @@ export function LibraryBrowser() {
         <span className="library-title">
           <FolderOpen size={14} /> ライブラリ
         </span>
+        <div className="library-search-wrapper">
+          <Search size={12} className="library-search-icon" />
+          <input
+            className="library-search-input"
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="検索..."
+          />
+        </div>
         {musicRoot && (
           <span className="library-root-path" title={musicRoot}>
             {musicRoot}
@@ -116,7 +138,7 @@ export function LibraryBrowser() {
           className="library-refresh-btn"
           onClick={scanLibrary}
           disabled={isScanning}
-          title="再スキャン"
+          title="再スキャン (F5)"
         >
           <RefreshCw size={14} className={isScanning ? "spinning" : ""} />
         </button>
@@ -126,6 +148,9 @@ export function LibraryBrowser() {
         {isScanning && <p className="library-scanning">スキャン中...</p>}
         {!isScanning && libraryTracks.length === 0 && (
           <p className="library-empty">音楽ファイルが見つかりません</p>
+        )}
+        {!isScanning && libraryTracks.length > 0 && albumGroups.length === 0 && (
+          <p className="library-empty">「{searchQuery}」に一致するファイルがありません</p>
         )}
         {!isScanning &&
           albumGroups.map((group) => (
