@@ -11,12 +11,13 @@ import { useLochordStore } from "../../application/store/useLochordStore";
 import { PlaylistPanel } from "../components/PlaylistPanel/PlaylistPanel";
 import { TrackList } from "../components/TrackList/TrackList";
 import { LibraryBrowser } from "../components/LibraryBrowser/LibraryBrowser";
-import { Music, X } from "lucide-react";
+import { FolderOpen, Music, X } from "lucide-react";
 
 export function MainPage() {
   const musicRoot = useLochordStore((s) => s.musicRoot);
   const loadPlaylists = useLochordStore((s) => s.loadPlaylists);
   const scanLibrary = useLochordStore((s) => s.scanLibrary);
+  const selectMusicRoot = useLochordStore((s) => s.selectMusicRoot);
   const addTrackToPlaylist = useLochordStore((s) => s.addTrackToPlaylist);
   const errorMessage = useLochordStore((s) => s.errorMessage);
   const clearError = useLochordStore((s) => s.clearError);
@@ -51,6 +52,14 @@ export function MainPage() {
               📂 {musicRoot}
             </span>
           )}
+          <button
+            className="change-dir-btn"
+            onClick={selectMusicRoot}
+            title="音楽フォルダを変更"
+          >
+            <FolderOpen size={14} />
+            フォルダ変更
+          </button>
         </header>
 
         {/* Body */}
