@@ -26,7 +26,8 @@ export function MainPage() {
       scanLibrary();
       loadPlaylists();
     }
-  }, [musicRoot]);
+    // Zustand actions are stable references - safe to include in deps
+  }, [musicRoot, scanLibrary, loadPlaylists]);
 
   const sensors = useSensors(useSensor(PointerSensor));
 

@@ -1,4 +1,4 @@
-use crate::commands::fs::Track;
+use crate::commands::fs::{read_audio_metadata, Track};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -123,9 +123,8 @@ fn compute_relative_path(from_dir: &Path, to_file: &Path) -> String {
 
 fn parse_m3u8(content: &str, playlist_dir: &Path) -> Vec<Track> {
     let mut tracks = Vec::new();
-    let mut current_title = String::new();
-    let mut current_artist = String::new();
-    let mut current_duration: i64 = 0;
+    let mut extinf_duration: i64 = 0;
+    let mut extinf_display = String::new();
 
     for line in content.lines() {
         let line = line.trim();
@@ -134,52 +133,69 @@ fn parse_m3u8(content: &str, playlist_dir: &Path) -> Vec<Track> {
         }
 
         if let Some(info) = line.strip_prefix("#EXTINF:") {
-            // Parse: duration,Artist - Title
+            // Store raw EXTINF data; we'll prefer file metadata when available
             let parts: Vec<&str> = info.splitn(2, ',').collect();
-            current_duration = parts[0].trim().parse().unwrap_or(0);
+            extinf_duration = parts[0].trim().parse().unwrap_or(0);
             if parts.len() > 1 {
-                let display = parts[1].trim();
-                if let Some(sep) = display.find(" - ") {
-                    current_artist = display[..sep].to_string();
-                    current_title = display[sep + 3..].to_string();
-                } else {
-                    current_title = display.to_string();
-                    current_artist = String::new();
-                }
+                extinf_display = parts[1].trim().to_string();
+            } else {
+                extinf_display = String::new();
             }
         } else if !line.starts_with('#') {
             // This is a path line
             let relative_path = line.replace('\\', "/");
             let abs_path = playlist_dir.join(&relative_path);
-            let absolute_path = abs_path
-                .canonicalize()
-                .unwrap_or(abs_path)
-                .to_string_lossy()
-                .to_string();
 
-            let title = if current_title.is_empty() {
-                Path::new(line)
-                    .file_stem()
-                    .and_then(|s| s.to_str())
-                    .unwrap_or("Unknown")
-                    .to_string()
-            } else {
-                current_title.clone()
+            // Try to resolve the file. If canonicalize succeeds the file exists.
+            let (absolute_path, title, artist, duration) = match abs_path.canonicalize() {
+                Ok(resolved) => {
+                    let absolute = resolved.to_string_lossy().to_string();
+                    let (t, a, d) = read_audio_metadata(&resolved);
+                    let dur = if d > 0 { d } else { extinf_duration };
+                    (absolute, t, a, dur)
+                }
+                Err(_) => {
+                    // File not available – use raw path and EXTINF display as fallback
+                    let absolute = abs_path.to_string_lossy().to_string();
+                    let (t, a, d) = parse_extinf_display(&extinf_display, line, extinf_duration);
+                    (absolute, t, a, d)
+                }
             };
 
             tracks.push(Track {
                 title,
-                artist: current_artist.clone(),
-                duration: current_duration,
+                artist,
+                duration,
                 relative_path,
                 absolute_path,
             });
 
-            current_title = String::new();
-            current_artist = String::new();
-            current_duration = 0;
+            extinf_duration = 0;
+            extinf_display = String::new();
         }
     }
 
     tracks
+}
+
+/// Parse the display portion of an EXTINF line (artist - title or just title).
+/// This is used only as a fallback when the audio file cannot be read.
+fn parse_extinf_display(display: &str, path_line: &str, duration: i64) -> (String, String, i64) {
+    if display.is_empty() {
+        let title = Path::new(path_line)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("Unknown")
+            .to_string();
+        return (title, String::new(), duration);
+    }
+
+    // Try "Artist - Title" split; only split on first occurrence
+    if let Some(sep) = display.find(" - ") {
+        let artist = display[..sep].to_string();
+        let title = display[sep + 3..].to_string();
+        return (title, artist, duration);
+    }
+
+    (display.to_string(), String::new(), duration)
 }

@@ -54,6 +54,8 @@ export const useLochordStore = create<LochordState>()(
       selectMusicRoot: async () => {
         try {
           const path = await selectMusicRoot();
+          // null means the user cancelled the dialog – treat silently
+          if (path === null) return;
           set({ musicRoot: path });
           // Auto scan after selecting root
           const state = get();
@@ -130,7 +132,15 @@ export const useLochordStore = create<LochordState>()(
         if (!musicRoot) return;
         const safeName = name.trim();
         if (!safeName) return;
-        const path = `${musicRoot}/Playlists/${safeName}.m3u8`;
+        // Normalize path separator for cross-platform compatibility
+        const normalizedRoot = musicRoot.replace(/\\/g, "/");
+        const path = `${normalizedRoot}/Playlists/${safeName}.m3u8`;
+        // Check for duplicate (normalize all paths once for comparison)
+        const existingPaths = playlists.map((p) => p.path.replace(/\\/g, "/"));
+        if (existingPaths.includes(path)) {
+          set({ errorMessage: `「${safeName}」という名前のプレイリストは既に存在します` });
+          return;
+        }
         try {
           await repo.savePlaylist(path, []);
           const newPlaylist = repo.buildPlaylist(path, []);

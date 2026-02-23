@@ -18,14 +18,13 @@ pub struct Track {
 const MUSIC_EXTENSIONS: &[&str] = &["flac", "mp3", "aac", "wav", "m4a"];
 
 #[tauri::command]
-pub async fn select_music_root(app: AppHandle) -> Result<String, String> {
+pub async fn select_music_root(app: AppHandle) -> Result<Option<String>, String> {
     let path = app
         .dialog()
         .file()
-        .blocking_pick_folder()
-        .ok_or_else(|| "No folder selected".to_string())?;
+        .blocking_pick_folder();
 
-    Ok(path.to_string())
+    Ok(path.map(|p| p.to_string()))
 }
 
 #[tauri::command]
@@ -39,6 +38,14 @@ pub async fn scan_music_directory(path: String) -> Result<Vec<Track>, String> {
 
     for entry in WalkDir::new(root)
         .into_iter()
+        .filter_entry(|e| {
+            // Skip the Playlists directory to avoid traversing M3U8 files
+            if e.file_type().is_dir() {
+                let name = e.file_name().to_string_lossy();
+                return name != "Playlists";
+            }
+            true
+        })
         .filter_map(|e| e.ok())
         .filter(|e| e.file_type().is_file())
     {
@@ -84,7 +91,7 @@ fn build_track(file_path: &Path, root: &Path) -> Track {
     }
 }
 
-fn read_audio_metadata(path: &Path) -> (String, String, i64) {
+pub fn read_audio_metadata(path: &Path) -> (String, String, i64) {
     use lofty::prelude::*;
     use lofty::probe::Probe;
 

@@ -95,7 +95,7 @@ export function LibraryBrowser() {
 
   const handleAdd = (track: Track) => {
     if (!selectedPlaylistPath) {
-      alert("先にプレイリストを選択してください");
+      useLochordStore.setState({ errorMessage: "先にプレイリストを選択してください" });
       return;
     }
     addTrackToPlaylist(track);
