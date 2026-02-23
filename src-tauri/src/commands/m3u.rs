@@ -7,13 +7,6 @@ use walkdir::WalkDir;
 pub async fn list_playlists(root: String) -> Result<Vec<String>, String> {
     let root_path = Path::new(&root);
 
-    // Ensure the dedicated Playlists directory exists for user-created playlists
-    let playlists_dir = root_path.join("Playlists");
-    if !playlists_dir.exists() {
-        fs::create_dir_all(&playlists_dir)
-            .map_err(|e| format!("Failed to create Playlists directory: {}", e))?;
-    }
-
     // Recursively scan the entire root for m3u / m3u8 files
     let mut playlists = Vec::new();
     for entry in WalkDir::new(root_path)
