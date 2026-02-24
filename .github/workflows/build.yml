@@ -57,7 +57,8 @@ jobs:
             -KeySpec Signature `
             -KeyLength 2048 `
             -KeyAlgorithm RSA `
-            -HashAlgorithm SHA256
+            -HashAlgorithm SHA256 `
+            -Type CodeSigning
 
           Write-Host "Certificate thumbprint: $($cert.Thumbprint)"
 
