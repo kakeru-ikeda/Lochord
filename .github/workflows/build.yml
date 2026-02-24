@@ -46,7 +46,7 @@ jobs:
       # Windows: 自己署名証明書を生成し、Tauri override config に書き出す
       - name: Create self-signed certificate (Windows)
         if: matrix.platform == 'windows-latest'
-        shell: powershell
+        shell: pwsh
         run: |
           $cert = New-SelfSignedCertificate `
             -Subject "CN=Lochord" `
@@ -61,7 +61,10 @@ jobs:
 
           # タサームプリントを含む Tauri override config を生成
           $config = "{`"bundle`":{`"windows`":{`"certificateThumbprint`":`"$($cert.Thumbprint)`"}}}"
-          $config | Out-File -FilePath "win-sign-override.json" -Encoding utf8 -NoNewline
+
+          # BOM なし UTF-8 で書き出す（BOM があると Tauri の JSON パースが失敗する）
+          $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+          [System.IO.File]::WriteAllText("$PWD\win-sign-override.json", $config, $utf8NoBom)
 
           echo "TAURI_ARGS=--config win-sign-override.json" >> $env:GITHUB_ENV
 
