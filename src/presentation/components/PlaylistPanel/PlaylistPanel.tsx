@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useLochordStore } from "../../../application/store/useLochordStore";
 import { playlistNameFromPath } from "../../../domain/rules/m3uPathResolver";
 import { ConfirmDialog } from "../ConfirmDialog/ConfirmDialog";
+import { useTranslation } from "../../hooks/useTranslation";
 import { Music, Plus, Trash2 } from "lucide-react";
 
 export function PlaylistPanel() {
@@ -14,6 +15,8 @@ export function PlaylistPanel() {
   const [isCreating, setIsCreating] = useState(false);
   const [newName, setNewName] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<{ path: string; name: string } | null>(null);
+
+  const t = useTranslation();
 
   const handleCreate = async () => {
     if (newName.trim()) {
@@ -42,13 +45,13 @@ export function PlaylistPanel() {
     <div className="playlist-panel">
       <div className="playlist-panel-header">
         <span className="playlist-panel-title">
-          <Music size={14} /> Playlists
+          <Music size={14} /> {t.playlist.header}
         </span>
       </div>
 
       <div className="playlist-list">
         {playlists.length === 0 && (
-          <p className="playlist-empty">プレイリストなし</p>
+          <p className="playlist-empty">{t.playlist.empty}</p>
         )}
         {playlists.map((pl) => {
           const name = playlistNameFromPath(pl.path);
@@ -69,7 +72,7 @@ export function PlaylistPanel() {
                   e.stopPropagation();
                   setDeleteTarget({ path: pl.path, name });
                 }}
-                title="削除"
+                title={t.playlist.deleteButtonTitle}
               >
                 <Trash2 size={12} />
               </button>
@@ -91,14 +94,14 @@ export function PlaylistPanel() {
                 setIsCreating(false);
               }
             }}
-            placeholder="プレイリスト名..."
+            placeholder={t.playlist.namePlaceholder}
           />
         ) : (
           <button
             className="playlist-create-btn"
             onClick={() => setIsCreating(true)}
           >
-            <Plus size={14} /> 新規作成
+            <Plus size={14} /> {t.playlist.newPlaylist}
           </button>
         )}
       </div>
@@ -106,10 +109,10 @@ export function PlaylistPanel() {
       {/* Delete confirmation dialog */}
       <ConfirmDialog
         open={!!deleteTarget}
-        title="プレイリストを削除しますか？"
-        message={`「${deleteTarget?.name ?? ""}」を削除します。この操作は元に戻せません。`}
-        confirmLabel="削除"
-        cancelLabel="キャンセル"
+        title={t.playlist.deleteDialogTitle}
+        message={t.playlist.deleteMessage(deleteTarget?.name ?? "")}
+        confirmLabel={t.playlist.deleteConfirm}
+        cancelLabel={t.playlist.deleteCancel}
         danger
         onConfirm={handleConfirmDelete}
         onCancel={() => setDeleteTarget(null)}

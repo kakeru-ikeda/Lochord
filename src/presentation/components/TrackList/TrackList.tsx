@@ -21,6 +21,7 @@ import { useSettingsStore } from "../../../application/store/useSettingsStore";
 import { Track } from "../../../domain/entities/Track";
 import { SaveExtension } from "../../../domain/entities/AppSettings";
 import { formatDuration, playlistNameFromPath } from "../../../domain/rules/m3uPathResolver";
+import { useTranslation } from "../../hooks/useTranslation";
 import { ChevronDown, GripVertical, Save, Trash2 } from "lucide-react";
 
 const FORMAT_OPTIONS: { value: SaveExtension; label: string }[] = [
@@ -34,9 +35,10 @@ interface SortableTrackRowProps {
   track: Track;
   index: number;
   onRemove: (absolutePath: string) => void;
+  removeTitle: string;
 }
 
-function SortableTrackRow({ track, index, onRemove }: SortableTrackRowProps) {
+function SortableTrackRow({ track, index, onRemove, removeTitle }: SortableTrackRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: track.absolutePath });
 
@@ -62,7 +64,7 @@ function SortableTrackRow({ track, index, onRemove }: SortableTrackRowProps) {
       <button
         className="track-remove-btn"
         onClick={() => onRemove(track.absolutePath)}
-        title="削除"
+        title={removeTitle}
       >
         <Trash2 size={12} />
       </button>
@@ -79,6 +81,7 @@ export function TrackList() {
   const saveCurrentPlaylistAs = useLochordStore((s) => s.saveCurrentPlaylistAs);
   const saveExtension = useSettingsStore((s) => s.settings.saveExtension);
 
+  const t = useTranslation();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -124,7 +127,7 @@ export function TrackList() {
   if (!selectedPlaylistPath) {
     return (
       <div className="tracklist-empty-state">
-        <p>← プレイリストを選択してください</p>
+        <p>{t.tracklist.selectPrompt}</p>
       </div>
     );
   }
@@ -136,10 +139,10 @@ export function TrackList() {
       <div className="tracklist-header">
         <div className="tracklist-header-left">
           <h2 className="tracklist-title">{playlistName}</h2>
-          {isDirty && <span className="tracklist-dirty-badge">●未保存</span>}
+          {isDirty && <span className="tracklist-dirty-badge">{t.tracklist.unsaved}</span>}
           {tracks.length > 0 && (
             <span className="tracklist-stats">
-              {tracks.length}曲 / {totalDuration}
+              {t.tracklist.stats(tracks.length, totalDuration)}
             </span>
           )}
         </div>
@@ -147,14 +150,14 @@ export function TrackList() {
           <button
             className={`save-btn save-btn-main ${isDirty ? "save-btn-dirty" : ""}`}
             onClick={saveCurrentPlaylist}
-            title="保存 (Ctrl+S)"
+            title={t.tracklist.saveTitle}
           >
-            <Save size={14} /> 保存
+            <Save size={14} /> {t.tracklist.saveLabel}
           </button>
           <button
             className={`save-btn save-btn-dropdown-toggle ${isDirty ? "save-btn-dirty" : ""}`}
             onClick={() => setDropdownOpen((o) => !o)}
-            title="保存形式を選択"
+            title={t.tracklist.saveFormatTitle}
           >
             <ChevronDown size={12} />
           </button>
@@ -179,15 +182,15 @@ export function TrackList() {
 
       {tracks.length === 0 ? (
         <div className="tracklist-empty">
-          <p>曲を追加してください（ライブラリの [+] ボタン、またはドラッグ&amp;ドロップ）</p>
+          <p>{t.tracklist.emptyHint}</p>
         </div>
       ) : (
         <div className="tracklist-body">
           <div className="track-header-row">
             <span className="track-drag-handle" />
             <span className="track-index">#</span>
-            <span className="track-title">タイトル</span>
-            <span className="track-duration">時間</span>
+            <span className="track-title">{t.tracklist.titleColumn}</span>
+            <span className="track-duration">{t.tracklist.durationColumn}</span>
             <span className="track-remove-btn" />
           </div>
           <DndContext
@@ -205,6 +208,7 @@ export function TrackList() {
                   track={track}
                   index={i}
                   onRemove={removeTrackFromPlaylist}
+                  removeTitle={t.tracklist.removeTitle}
                 />
               ))}
             </SortableContext>

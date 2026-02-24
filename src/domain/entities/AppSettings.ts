@@ -1,7 +1,7 @@
 export type PathMode = "relative" | "absolute" | "relative-from-root";
 export type SaveExtension = "m3u8" | "m3u" | "txt" | "csv";
 export type ColorTheme = "dark" | "light" | "system";
-export type Language = "ja" | "en";
+export type Language = "ja" | "en" | "ko" | "zh";
 
 export interface AppSettings {
   // Playlist

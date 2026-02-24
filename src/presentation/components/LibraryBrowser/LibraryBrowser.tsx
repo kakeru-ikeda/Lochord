@@ -4,6 +4,7 @@ import { useLochordStore } from "../../../application/store/useLochordStore";
 import { Track } from "../../../domain/entities/Track";
 import { formatDuration } from "../../../domain/rules/m3uPathResolver";
 import { ChevronDown, ChevronRight, FolderOpen, Music, Plus, RefreshCw, Search } from "lucide-react";
+import { useTranslation } from "../../hooks/useTranslation";
 
 interface AlbumGroup {
   folder: string;
@@ -13,9 +14,10 @@ interface AlbumGroup {
 interface DraggableTrackProps {
   track: Track;
   onAdd: (track: Track) => void;
+  addTitle: string;
 }
 
-function DraggableTrack({ track, onAdd }: DraggableTrackProps) {
+function DraggableTrack({ track, onAdd, addTitle }: DraggableTrackProps) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `library-${track.absolutePath}`,
     data: { track },
@@ -37,7 +39,7 @@ function DraggableTrack({ track, onAdd }: DraggableTrackProps) {
           e.stopPropagation();
           onAdd(track);
         }}
-        title="プレイリストに追加"
+        title={addTitle}
       >
         <Plus size={12} />
       </button>
@@ -48,9 +50,11 @@ function DraggableTrack({ track, onAdd }: DraggableTrackProps) {
 interface FolderNodeProps {
   group: AlbumGroup;
   onAdd: (track: Track) => void;
+  trackCountLabel: (count: number) => string;
+  addTitle: string;
 }
 
-function FolderNode({ group, onAdd }: FolderNodeProps) {
+function FolderNode({ group, onAdd, trackCountLabel, addTitle }: FolderNodeProps) {
   const [open, setOpen] = useState(false);
   return (
     <div className="library-folder">
@@ -61,12 +65,12 @@ function FolderNode({ group, onAdd }: FolderNodeProps) {
         {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
         <FolderOpen size={14} />
         <span className="library-folder-name">{group.folder}</span>
-        <span className="library-folder-count">{group.tracks.length}曲</span>
+        <span className="library-folder-count">{trackCountLabel(group.tracks.length)}</span>
       </div>
       {open && (
         <div className="library-folder-tracks">
           {group.tracks.map((t) => (
-            <DraggableTrack key={t.absolutePath} track={t} onAdd={onAdd} />
+            <DraggableTrack key={t.absolutePath} track={t} onAdd={onAdd} addTitle={addTitle} />
           ))}
         </div>
       )}
@@ -83,6 +87,8 @@ export function LibraryBrowser() {
   const selectedPlaylistPath = useLochordStore((s) => s.selectedPlaylistPath);
 
   const [searchQuery, setSearchQuery] = useState("");
+
+  const t = useTranslation();
 
   const albumGroups = useMemo((): AlbumGroup[] => {
     const query = searchQuery.toLowerCase();
@@ -107,7 +113,7 @@ export function LibraryBrowser() {
 
   const handleAdd = (track: Track) => {
     if (!selectedPlaylistPath) {
-      useLochordStore.setState({ errorMessage: "先にプレイリストを選択してください" });
+      useLochordStore.setState({ errorMessage: t.library.selectPlaylistFirst });
       return;
     }
     addTrackToPlaylist(track);
@@ -117,7 +123,7 @@ export function LibraryBrowser() {
     <div className="library-browser">
       <div className="library-header">
         <span className="library-title">
-          <FolderOpen size={14} /> ライブラリ
+          <FolderOpen size={14} /> {t.library.header}
         </span>
         <div className="library-search-wrapper">
           <Search size={12} className="library-search-icon" />
@@ -126,7 +132,7 @@ export function LibraryBrowser() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="検索..."
+            placeholder={t.library.searchPlaceholder}
           />
         </div>
         {musicRoot && (
@@ -138,23 +144,29 @@ export function LibraryBrowser() {
           className="library-refresh-btn"
           onClick={scanLibrary}
           disabled={isScanning}
-          title="再スキャン (F5)"
+          title={t.library.rescanTitle}
         >
           <RefreshCw size={14} className={isScanning ? "spinning" : ""} />
         </button>
       </div>
 
       <div className="library-content">
-        {isScanning && <p className="library-scanning">スキャン中...</p>}
+        {isScanning && <p className="library-scanning">{t.library.scanning}</p>}
         {!isScanning && libraryTracks.length === 0 && (
-          <p className="library-empty">音楽ファイルが見つかりません</p>
+          <p className="library-empty">{t.library.empty}</p>
         )}
         {!isScanning && libraryTracks.length > 0 && albumGroups.length === 0 && (
-          <p className="library-empty">「{searchQuery}」に一致するファイルがありません</p>
+          <p className="library-empty">{t.library.noResults(searchQuery)}</p>
         )}
         {!isScanning &&
           albumGroups.map((group) => (
-            <FolderNode key={group.folder} group={group} onAdd={handleAdd} />
+            <FolderNode
+              key={group.folder}
+              group={group}
+              onAdd={handleAdd}
+              trackCountLabel={t.library.trackCount}
+              addTitle={t.library.addToPlaylistTitle}
+            />
           ))}
       </div>
     </div>

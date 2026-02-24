@@ -12,6 +12,7 @@ import { PlaylistPanel } from "../components/PlaylistPanel/PlaylistPanel";
 import { TrackList } from "../components/TrackList/TrackList";
 import { LibraryBrowser } from "../components/LibraryBrowser/LibraryBrowser";
 import { SettingsModal } from "../components/SettingsModal/SettingsModal";
+import { useTranslation } from "../hooks/useTranslation";
 import { FolderOpen, Music, Settings, X } from "lucide-react";
 
 export function MainPage() {
@@ -26,6 +27,8 @@ export function MainPage() {
   const clearError = useLochordStore((s) => s.clearError);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  const t = useTranslation();
 
   useEffect(() => {
     if (musicRoot) {
@@ -46,7 +49,7 @@ export function MainPage() {
       // Ctrl+N / Cmd+N — new playlist (prompt)
       if ((e.ctrlKey || e.metaKey) && e.key === "n") {
         e.preventDefault();
-        const name = prompt("新しいプレイリスト名:");
+        const name = prompt(t.playlist.newNamePrompt);
         if (name?.trim()) createPlaylist(name.trim());
       }
       // F5 — rescan library
@@ -94,15 +97,15 @@ export function MainPage() {
             <button
               className="change-dir-btn"
               onClick={selectMusicRoot}
-              title="音楽フォルダを変更"
+              title={t.header.changeFolderTitle}
             >
               <FolderOpen size={14} />
-              フォルダ変更
+              {t.header.changeFolder}
             </button>
             <button
               className="settings-btn"
               onClick={() => setSettingsOpen(true)}
-              title="設定 (Ctrl+,)"
+              title={t.header.settingsTitle}
             >
               <Settings size={16} />
             </button>

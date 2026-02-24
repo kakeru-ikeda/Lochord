@@ -1,8 +1,10 @@
 import { useLochordStore } from "../../application/store/useLochordStore";
+import { useTranslation } from "../hooks/useTranslation";
 import { FolderOpen, Music } from "lucide-react";
 
 export function OnboardingPage() {
   const selectMusicRoot = useLochordStore((s) => s.selectMusicRoot);
+  const t = useTranslation();
 
   return (
     <div className="onboarding-page">
@@ -12,16 +14,16 @@ export function OnboardingPage() {
         </div>
         <h1 className="onboarding-title">Lochord</h1>
         <p className="onboarding-desc">
-          ローカル音楽ライブラリの M3U8 プレイリストマネージャー
+          {t.onboarding.description}
         </p>
         <p className="onboarding-hint">
-          まず音楽フォルダを選択してください。
+          {t.onboarding.hint1}
           <br />
-          選択したフォルダ内の <code>Playlists/</code> にプレイリストが保存されます。
+          {t.onboarding.hint2}
         </p>
         <button className="onboarding-btn" onClick={selectMusicRoot}>
           <FolderOpen size={18} />
-          音楽フォルダを選択
+          {t.onboarding.openFolder}
         </button>
       </div>
     </div>

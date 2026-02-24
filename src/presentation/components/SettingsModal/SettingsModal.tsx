@@ -5,7 +5,9 @@ import {
   AppSettings,
   PathMode,
   ColorTheme,
+  Language,
 } from "../../../domain/entities/AppSettings";
+import { useTranslation } from "../../hooks/useTranslation";
 import { X, RotateCcw, FolderOpen } from "lucide-react";
 
 interface SettingsModalProps {
@@ -15,24 +17,28 @@ interface SettingsModalProps {
 
 type TabKey = "playlist" | "scan" | "display";
 
-const PATH_MODE_OPTIONS: { value: PathMode; label: string; desc: string }[] = [
-  { value: "relative", label: "相対パス", desc: "プレイリストファイルからの相対パス（推奨）" },
-  { value: "absolute", label: "絶対パス", desc: "OSのフルパス" },
-  { value: "relative-from-root", label: "ルートからの相対", desc: "ミュージックルートからの相対パス" },
-];
-
-const THEME_OPTIONS: { value: ColorTheme; label: string }[] = [
-  { value: "system", label: "システム設定に従う" },
-  { value: "dark", label: "ダーク" },
-  { value: "light", label: "ライト" },
-];
-
 const DEFAULT_EXTENSIONS = ["flac", "mp3", "aac", "wav", "m4a", "ogg", "opus"];
 
 export function SettingsModal({ open, onClose }: SettingsModalProps) {
   const settings = useSettingsStore((s) => s.settings);
   const updateSettings = useSettingsStore((s) => s.updateSettings);
   const resetSettings = useSettingsStore((s) => s.resetSettings);
+
+  const t = useTranslation();
+
+  // path mode options derived from translations
+  const PATH_MODE_OPTIONS: { value: PathMode; label: string; desc: string }[] = [
+    { value: "relative", ...t.settings.playlist.pathModes.relative },
+    { value: "absolute", ...t.settings.playlist.pathModes.absolute },
+    { value: "relative-from-root", ...t.settings.playlist.pathModes.relativeFromRoot },
+  ];
+
+  // theme options derived from translations
+  const THEME_OPTIONS: { value: ColorTheme; label: string }[] = [
+    { value: "system", label: t.settings.display.themes.system },
+    { value: "dark",   label: t.settings.display.themes.dark },
+    { value: "light",  label: t.settings.display.themes.light },
+  ];
 
   // Local draft state for editing
   const [draft, setDraft] = useState<AppSettings>({ ...settings });
@@ -99,9 +105,9 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
   };
 
   const tabs: { key: TabKey; label: string }[] = [
-    { key: "playlist", label: "プレイリスト" },
-    { key: "scan", label: "スキャン" },
-    { key: "display", label: "表示" },
+    { key: "playlist", label: t.settings.tabs.playlist },
+    { key: "scan",     label: t.settings.tabs.scan },
+    { key: "display",  label: t.settings.tabs.display },
   ];
 
   return (
@@ -109,7 +115,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
       <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="settings-modal-header">
-          <span className="settings-modal-title">⚙ 設定</span>
+          <span className="settings-modal-title">{t.settings.title}</span>
           <button className="settings-modal-close" onClick={onClose}>
             <X size={16} />
           </button>
@@ -136,7 +142,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
               <div className="settings-section">
                 {/* Path mode */}
                 <div className="settings-group">
-                  <label className="settings-label">パス形式</label>
+                  <label className="settings-label">{t.settings.playlist.pathModeLabel}</label>
                   {PATH_MODE_OPTIONS.map((opt) => (
                     <label key={opt.value} className="settings-radio">
                       <input
@@ -155,13 +161,13 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
 
                 {/* Playlist directory */}
                 <div className="settings-group">
-                  <label className="settings-label">保存先ディレクトリ</label>
+                  <label className="settings-label">{t.settings.playlist.dirLabel}</label>
                   <div className="settings-dir-row">
                     <input
                       type="text"
                       className="settings-input"
                       value={draft.playlistDir ?? ""}
-                      placeholder="デフォルト: {ミュージックルート}/Playlists/"
+                      placeholder={t.settings.playlist.dirPlaceholder}
                       onChange={(e) =>
                         updateDraft({ playlistDir: e.target.value || null })
                       }
@@ -175,7 +181,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                       className="settings-link-btn"
                       onClick={() => updateDraft({ playlistDir: null })}
                     >
-                      デフォルトにリセット
+                      {t.settings.playlist.dirReset}
                     </button>
                   )}
                 </div>
@@ -189,7 +195,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                       checked={draft.autoSave}
                       onChange={(e) => updateDraft({ autoSave: e.target.checked })}
                     />
-                    トラック変更後に自動保存
+                    {t.settings.playlist.autoSaveCheckbox}
                   </label>
                 </div>
               </div>
@@ -199,7 +205,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
               <div className="settings-section">
                 {/* Scan extensions */}
                 <div className="settings-group">
-                  <label className="settings-label">スキャン対象の拡張子</label>
+                  <label className="settings-label">{t.settings.scan.extensionsLabel}</label>
                   <div className="settings-tag-list">
                     {draft.scanExtensions.map((ext) => (
                       <span key={ext} className="settings-tag">
@@ -219,23 +225,23 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                       value={newExtension}
                       onChange={(e) => setNewExtension(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && addExtension()}
-                      placeholder="拡張子を追加..."
+                      placeholder={t.settings.scan.extensionAddPlaceholder}
                     />
                     <button className="settings-add-btn" onClick={addExtension}>
-                      追加
+                      {t.settings.scan.addButton}
                     </button>
                   </div>
                   <button
                     className="settings-link-btn"
                     onClick={() => updateDraft({ scanExtensions: [...DEFAULT_EXTENSIONS] })}
                   >
-                    デフォルトにリセット
+                    {t.settings.scan.extensionsReset}
                   </button>
                 </div>
 
                 {/* Exclude patterns */}
                 <div className="settings-group">
-                  <label className="settings-label">除外パターン（ディレクトリ名）</label>
+                  <label className="settings-label">{t.settings.scan.excludeLabel}</label>
                   <div className="settings-tag-list">
                     {draft.excludePatterns.map((pat) => (
                       <span key={pat} className="settings-tag">
@@ -249,7 +255,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                       </span>
                     ))}
                     {draft.excludePatterns.length === 0 && (
-                      <span className="settings-hint">なし</span>
+                      <span className="settings-hint">{t.settings.scan.excludeNone}</span>
                     )}
                   </div>
                   <div className="settings-inline-add">
@@ -258,10 +264,10 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                       value={newExclude}
                       onChange={(e) => setNewExclude(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && addExclude()}
-                      placeholder="除外名を追加..."
+                      placeholder={t.settings.scan.excludeAddPlaceholder}
                     />
                     <button className="settings-add-btn" onClick={addExclude}>
-                      追加
+                      {t.settings.scan.addButton}
                     </button>
                   </div>
                 </div>
@@ -272,7 +278,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
               <div className="settings-section">
                 {/* Theme */}
                 <div className="settings-group">
-                  <label className="settings-label">テーマ</label>
+                  <label className="settings-label">{t.settings.display.themeLabel}</label>
                   {THEME_OPTIONS.map((opt) => (
                     <label key={opt.value} className="settings-radio">
                       <input
@@ -288,16 +294,18 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
 
                 {/* Language */}
                 <div className="settings-group">
-                  <label className="settings-label">言語</label>
+                  <label className="settings-label">{t.settings.display.languageLabel}</label>
                   <select
                     className="settings-select"
                     value={draft.language}
                     onChange={(e) =>
-                      updateDraft({ language: e.target.value as "ja" | "en" })
+                      updateDraft({ language: e.target.value as Language })
                     }
                   >
                     <option value="ja">日本語</option>
                     <option value="en">English</option>
+                    <option value="ko">한국어</option>
+                    <option value="zh">中文（简体）</option>
                   </select>
                 </div>
               </div>
@@ -307,15 +315,15 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
 
         {/* Footer */}
         <div className="settings-modal-footer">
-          <button className="settings-reset-btn" onClick={handleReset} title="すべてデフォルトに戻す">
-            <RotateCcw size={14} /> リセット
+          <button className="settings-reset-btn" onClick={handleReset} title="Reset all to defaults">
+            <RotateCcw size={14} /> {t.settings.footer.reset}
           </button>
           <div className="settings-footer-actions">
             <button className="settings-cancel-btn" onClick={onClose}>
-              キャンセル
+              {t.settings.footer.cancel}
             </button>
             <button className="settings-save-btn" onClick={handleSave}>
-              設定を保存
+              {t.settings.footer.save}
             </button>
           </div>
         </div>
