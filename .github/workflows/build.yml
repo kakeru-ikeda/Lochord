@@ -1,0 +1,92 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: ubuntu-22.04
+          - platform: windows-latest
+          - platform: macos-latest
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Install Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+
+      # Linux: WebKitGTK 等のシステム依存ライブラリ
+      - name: Install Linux dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      # Windows: 自己署名証明書を生成し、Tauri override config に書き出す
+      - name: Create self-signed certificate (Windows)
+        if: matrix.platform == 'windows-latest'
+        shell: powershell
+        run: |
+          $cert = New-SelfSignedCertificate `
+            -Subject "CN=Lochord" `
+            -CertStoreLocation "Cert:\CurrentUser\My" `
+            -KeyExportPolicy Exportable `
+            -KeySpec Signature `
+            -KeyLength 2048 `
+            -KeyAlgorithm RSA `
+            -HashAlgorithm SHA256
+
+          Write-Host "Certificate thumbprint: $($cert.Thumbprint)"
+
+          # タサームプリントを含む Tauri override config を生成
+          $config = "{`"bundle`":{`"windows`":{`"certificateThumbprint`":`"$($cert.Thumbprint)`"}}}"
+          $config | Out-File -FilePath "win-sign-override.json" -Encoding utf8 -NoNewline
+
+          echo "TAURI_ARGS=--config win-sign-override.json" >> $env:GITHUB_ENV
+
+      - name: Install frontend dependencies
+        run: npm install
+
+      # タグ push 時: ビルド + GitHub Release へ成果物をアップロード
+      - name: Build and upload release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: Lochord ${{ github.ref_name }}
+          releaseBody: |
+            See the assets below to download and install this version.
+          releaseDraft: true
+          args: ${{ env.TAURI_ARGS || '' }}
+
+      # PR / 手動実行時: ビルド確認のみ（Release へのアップロードなし）
+      - name: Build only
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: ${{ env.TAURI_ARGS || '' }}
