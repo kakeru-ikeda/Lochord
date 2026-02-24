@@ -4,7 +4,6 @@ import { useSettingsStore } from "../../../application/store/useSettingsStore";
 import {
   AppSettings,
   PathMode,
-  SaveExtension,
   ColorTheme,
 } from "../../../domain/entities/AppSettings";
 import { X, RotateCcw, FolderOpen } from "lucide-react";
@@ -20,13 +19,6 @@ const PATH_MODE_OPTIONS: { value: PathMode; label: string; desc: string }[] = [
   { value: "relative", label: "相対パス", desc: "プレイリストファイルからの相対パス（推奨）" },
   { value: "absolute", label: "絶対パス", desc: "OSのフルパス" },
   { value: "relative-from-root", label: "ルートからの相対", desc: "ミュージックルートからの相対パス" },
-];
-
-const FORMAT_OPTIONS: { value: SaveExtension; label: string; desc: string }[] = [
-  { value: "m3u8", label: "M3U8", desc: "UTF-8 拡張M3Uプレイリスト" },
-  { value: "m3u", label: "M3U", desc: "拡張M3Uプレイリスト" },
-  { value: "txt", label: "TXT", desc: "パスのみのテキスト" },
-  { value: "csv", label: "CSV", desc: "カンマ区切り（スプレッドシート向け）" },
 ];
 
 const THEME_OPTIONS: { value: ColorTheme; label: string }[] = [
@@ -188,23 +180,6 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                   )}
                 </div>
 
-                {/* Save format */}
-                <div className="settings-group">
-                  <label className="settings-label">保存形式</label>
-                  <select
-                    className="settings-select"
-                    value={draft.saveExtension}
-                    onChange={(e) =>
-                      updateDraft({ saveExtension: e.target.value as SaveExtension })
-                    }
-                  >
-                    {FORMAT_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label} — {opt.desc}
-                      </option>
-                    ))}
-                  </select>
-                </div>
 
                 {/* Auto save */}
                 <div className="settings-group">

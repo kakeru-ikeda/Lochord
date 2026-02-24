@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef, useEffect, useState } from "react";
 import {
   DndContext,
   DragEndEvent,
@@ -17,9 +17,18 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useLochordStore } from "../../../application/store/useLochordStore";
+import { useSettingsStore } from "../../../application/store/useSettingsStore";
 import { Track } from "../../../domain/entities/Track";
+import { SaveExtension } from "../../../domain/entities/AppSettings";
 import { formatDuration, playlistNameFromPath } from "../../../domain/rules/m3uPathResolver";
-import { GripVertical, Save, Trash2 } from "lucide-react";
+import { ChevronDown, GripVertical, Save, Trash2 } from "lucide-react";
+
+const FORMAT_OPTIONS: { value: SaveExtension; label: string }[] = [
+  { value: "m3u8", label: "M3U8" },
+  { value: "m3u", label: "M3U" },
+  { value: "txt", label: "TXT" },
+  { value: "csv", label: "CSV" },
+];
 
 interface SortableTrackRowProps {
   track: Track;
@@ -67,6 +76,26 @@ export function TrackList() {
   const reorderTracks = useLochordStore((s) => s.reorderTracks);
   const removeTrackFromPlaylist = useLochordStore((s) => s.removeTrackFromPlaylist);
   const saveCurrentPlaylist = useLochordStore((s) => s.saveCurrentPlaylist);
+  const saveCurrentPlaylistAs = useLochordStore((s) => s.saveCurrentPlaylistAs);
+  const saveExtension = useSettingsStore((s) => s.settings.saveExtension);
+
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleSaveAs = async (ext: SaveExtension) => {
+    setDropdownOpen(false);
+    await saveCurrentPlaylistAs(ext);
+  };
 
   const selectedPlaylist = playlists.find((p) => p.path === selectedPlaylistPath);
   const tracks = selectedPlaylist?.tracks ?? [];
@@ -114,13 +143,38 @@ export function TrackList() {
             </span>
           )}
         </div>
-        <button
-          className={`save-btn ${isDirty ? "save-btn-dirty" : ""}`}
-          onClick={saveCurrentPlaylist}
-          title="保存 (Ctrl+S)"
-        >
-          <Save size={14} /> 保存
-        </button>
+        <div className="save-btn-group" ref={dropdownRef}>
+          <button
+            className={`save-btn save-btn-main ${isDirty ? "save-btn-dirty" : ""}`}
+            onClick={saveCurrentPlaylist}
+            title="保存 (Ctrl+S)"
+          >
+            <Save size={14} /> 保存
+          </button>
+          <button
+            className={`save-btn save-btn-dropdown-toggle ${isDirty ? "save-btn-dirty" : ""}`}
+            onClick={() => setDropdownOpen((o) => !o)}
+            title="保存形式を選択"
+          >
+            <ChevronDown size={12} />
+          </button>
+          {dropdownOpen && (
+            <div className="save-dropdown-menu">
+              {FORMAT_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  className={`save-dropdown-item ${saveExtension === opt.value ? "active" : ""}`}
+                  onClick={() => handleSaveAs(opt.value)}
+                >
+                  {opt.label}
+                  {saveExtension === opt.value && (
+                    <span className="save-dropdown-check">✓</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {tracks.length === 0 ? (

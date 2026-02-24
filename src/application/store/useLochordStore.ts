@@ -1,5 +1,6 @@
 import { Track } from "../../domain/entities/Track";
 import { Playlist } from "../../domain/entities/Playlist";
+import { SaveExtension } from "../../domain/entities/AppSettings";
 import { scanMusicDirectory, selectMusicRoot } from "../../infrastructure/tauri/fileSystemAdapter";
 import { PlaylistRepository } from "../../infrastructure/repositories/PlaylistRepository";
 import { useSettingsStore } from "./useSettingsStore";
@@ -33,6 +34,7 @@ interface LochordState {
   removeTrackFromPlaylist: (absolutePath: string) => void;
   reorderTracks: (tracks: Track[]) => void;
   saveCurrentPlaylist: () => Promise<void>;
+  saveCurrentPlaylistAs: (ext: SaveExtension) => Promise<void>;
 
   // UI state
   errorMessage: string | null;
@@ -257,6 +259,47 @@ export const useLochordStore = create<LochordState>()(
           set({
             playlists: playlists.map((p) =>
               p.path === selectedPlaylistPath ? { ...p, isDirty: false } : p
+            ),
+          });
+        } catch (e) {
+          set({ errorMessage: `保存エラー: ${e}` });
+        }
+      },
+
+      saveCurrentPlaylistAs: async (ext: SaveExtension) => {
+        const { playlists, selectedPlaylistPath, musicRoot } = get();
+        if (!selectedPlaylistPath) return;
+        const playlist = playlists.find((p) => p.path === selectedPlaylistPath);
+        if (!playlist) return;
+
+        // 拡張子を差し替えた新しいパスを生成
+        const newPath = playlist.path.replace(/\.[^./\\]+$/, `.${ext}`);
+
+        try {
+          // 新しいパス（新拡張子）で保存
+          const { settings } = useSettingsStore.getState();
+          await repo.savePlaylist(newPath, playlist.tracks, {
+            path_mode: settings.pathMode,
+            music_root: musicRoot,
+            format: ext,
+          });
+
+          // パスが変わった場合は古いファイルを削除し、設定も更新
+          if (newPath !== playlist.path) {
+            try {
+              await repo.deletePlaylist(playlist.path);
+            } catch {
+              // 削除失敗は無視（ファイルが存在しない場合など）
+            }
+            useSettingsStore.getState().updateSettings({ saveExtension: ext });
+          }
+
+          set({
+            selectedPlaylistPath: newPath,
+            playlists: playlists.map((p) =>
+              p.path === selectedPlaylistPath
+                ? { ...p, path: newPath, name: p.name, isDirty: false }
+                : p
             ),
           });
         } catch (e) {
