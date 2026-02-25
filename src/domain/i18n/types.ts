@@ -89,4 +89,23 @@ export type Translations = {
       save: string;
     };
   };
+  metadata: {
+    header: string;
+    selectPrompt: string;
+    title: string;
+    artist: string;
+    album: string;
+    genre: string;
+    year: string;
+    coverArt: string;
+    coverArtSelect: string;
+    coverArtRemove: string;
+    filePath: string;
+    duration: string;
+    save: string;
+    reset: string;
+    saving: string;
+    saveSuccess: string;
+    saveError: string;
+  };
 };

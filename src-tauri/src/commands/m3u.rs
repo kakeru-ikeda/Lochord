@@ -37,7 +37,10 @@ fn scan_dir_for_playlists(dir: &Path, extensions: &[&str], results: &mut Vec<Str
 }
 
 #[tauri::command]
-pub async fn list_playlists(root: String, playlist_dir: Option<String>) -> Result<Vec<String>, String> {
+pub async fn list_playlists(
+    root: String,
+    playlist_dir: Option<String>,
+) -> Result<Vec<String>, String> {
     let root_path = Path::new(&root);
 
     let mut playlists = Vec::new();
@@ -67,13 +70,11 @@ pub async fn list_playlists(root: String, playlist_dir: Option<String>) -> Resul
 
 #[tauri::command]
 pub async fn load_playlist(path: String) -> Result<Vec<Track>, String> {
-    let content = fs::read_to_string(&path)
-        .map_err(|e| format!("Failed to read playlist: {}", e))?;
+    let content =
+        fs::read_to_string(&path).map_err(|e| format!("Failed to read playlist: {}", e))?;
 
     let playlist_path = Path::new(&path);
-    let playlist_dir = playlist_path
-        .parent()
-        .ok_or("Invalid playlist path")?;
+    let playlist_dir = playlist_path.parent().ok_or("Invalid playlist path")?;
 
     let ext = playlist_path
         .extension()
@@ -99,8 +100,7 @@ pub async fn save_playlist(
 
     // Ensure parent directory exists
     if let Some(parent) = playlist_path.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|e| format!("Failed to create directory: {}", e))?;
+        fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
     }
 
     let playlist_dir = playlist_path.parent().ok_or("Invalid playlist path")?;
@@ -117,8 +117,7 @@ pub async fn save_playlist(
         _ => build_m3u8(&tracks, playlist_dir, &opts),
     };
 
-    fs::write(&path, content.as_bytes())
-        .map_err(|e| format!("Failed to write playlist: {}", e))?;
+    fs::write(&path, content.as_bytes()).map_err(|e| format!("Failed to write playlist: {}", e))?;
 
     Ok(true)
 }
@@ -127,8 +126,7 @@ pub async fn save_playlist(
 pub async fn delete_playlist(path: String) -> Result<bool, String> {
     let p = Path::new(&path);
     if p.exists() {
-        fs::remove_file(p)
-            .map_err(|e| format!("Failed to delete playlist: {}", e))?;
+        fs::remove_file(p).map_err(|e| format!("Failed to delete playlist: {}", e))?;
     }
     Ok(true)
 }
@@ -199,7 +197,10 @@ fn build_csv(tracks: &[Track], playlist_dir: &Path, opts: &PlaylistSaveOptions) 
         let title = csv_escape(&track.title);
         let artist = csv_escape(&track.artist);
         let path_escaped = csv_escape(&path_str);
-        lines.push(format!("{},{},{},{}", title, artist, track.duration, path_escaped));
+        lines.push(format!(
+            "{},{},{},{}",
+            title, artist, track.duration, path_escaped
+        ));
     }
     lines.join("\n") + "\n"
 }
@@ -262,24 +263,42 @@ fn parse_m3u8(content: &str, playlist_dir: &Path) -> Vec<Track> {
             let abs_path = playlist_dir.join(&relative_path);
 
             // Try to resolve the file. If canonicalize succeeds the file exists.
-            let (absolute_path, title, artist, duration) = match abs_path.canonicalize() {
+            let (absolute_path, title, artist, album, genre, year, duration) = match abs_path
+                .canonicalize()
+            {
                 Ok(resolved) => {
                     let absolute = resolved.to_string_lossy().to_string();
-                    let (t, a, d) = read_audio_metadata(&resolved);
-                    let dur = if d > 0 { d } else { extinf_duration };
-                    (absolute, t, a, dur)
+                    let meta = read_audio_metadata(&resolved, false);
+                    let dur = if meta.duration > 0 {
+                        meta.duration
+                    } else {
+                        extinf_duration
+                    };
+                    (
+                        absolute,
+                        meta.title,
+                        meta.artist,
+                        meta.album,
+                        meta.genre,
+                        meta.year,
+                        dur,
+                    )
                 }
                 Err(_) => {
                     // File not available – use raw path and EXTINF display as fallback
                     let absolute = abs_path.to_string_lossy().to_string();
                     let (t, a, d) = parse_extinf_display(&extinf_display, line, extinf_duration);
-                    (absolute, t, a, d)
+                    (absolute, t, a, String::new(), String::new(), 0, d)
                 }
             };
 
             tracks.push(Track {
                 title,
                 artist,
+                album,
+                genre,
+                year,
+                cover_art: String::new(),
                 duration,
                 relative_path,
                 absolute_path,
@@ -330,11 +349,20 @@ fn resolve_path_to_track(path_line: &str, playlist_dir: &Path) -> Option<Track> 
         (abs, normalized.clone())
     };
 
-    let (absolute_path, title, artist, duration) = match abs_path.canonicalize() {
+    let (absolute_path, title, artist, album, genre, year, duration) = match abs_path.canonicalize()
+    {
         Ok(resolved) => {
             let absolute = resolved.to_string_lossy().to_string();
-            let (t, a, d) = read_audio_metadata(&resolved);
-            (absolute, t, a, d)
+            let meta = read_audio_metadata(&resolved, false);
+            (
+                absolute,
+                meta.title,
+                meta.artist,
+                meta.album,
+                meta.genre,
+                meta.year,
+                meta.duration,
+            )
         }
         Err(_) => {
             let absolute = abs_path.to_string_lossy().to_string();
@@ -343,13 +371,25 @@ fn resolve_path_to_track(path_line: &str, playlist_dir: &Path) -> Option<Track> 
                 .and_then(|s| s.to_str())
                 .unwrap_or("Unknown")
                 .to_string();
-            (absolute, title, String::new(), 0)
+            (
+                absolute,
+                title,
+                String::new(),
+                String::new(),
+                String::new(),
+                0,
+                0,
+            )
         }
     };
 
     Some(Track {
         title,
         artist,
+        album,
+        genre,
+        year,
+        cover_art: String::new(),
         duration,
         relative_path: rel_path,
         absolute_path,

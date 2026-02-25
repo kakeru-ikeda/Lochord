@@ -1,6 +1,8 @@
 mod commands;
 
-use commands::fs::{scan_music_directory, select_directory, select_music_root};
+use commands::fs::{
+    read_audio_tags, scan_music_directory, select_directory, select_music_root, write_audio_tags,
+};
 use commands::m3u::{delete_playlist, list_playlists, load_playlist, save_playlist};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -12,6 +14,8 @@ pub fn run() {
             select_music_root,
             select_directory,
             scan_music_directory,
+            read_audio_tags,
+            write_audio_tags,
             list_playlists,
             load_playlist,
             save_playlist,

@@ -13,11 +13,13 @@ interface AlbumGroup {
 
 interface DraggableTrackProps {
   track: Track;
+  isEditing: boolean;
   onAdd: (track: Track) => void;
+  onSelect: (track: Track) => void;
   addTitle: string;
 }
 
-function DraggableTrack({ track, onAdd, addTitle }: DraggableTrackProps) {
+function DraggableTrack({ track, isEditing, onAdd, onSelect, addTitle }: DraggableTrackProps) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `library-${track.absolutePath}`,
     data: { track },
@@ -26,7 +28,8 @@ function DraggableTrack({ track, onAdd, addTitle }: DraggableTrackProps) {
   return (
     <div
       ref={setNodeRef}
-      className={`library-track ${isDragging ? "dragging" : ""}`}
+      className={`library-track ${isDragging ? "dragging" : ""} ${isEditing ? "library-track-editing" : ""}`}
+      onClick={() => onSelect(track)}
       {...attributes}
       {...listeners}
     >
@@ -49,12 +52,14 @@ function DraggableTrack({ track, onAdd, addTitle }: DraggableTrackProps) {
 
 interface FolderNodeProps {
   group: AlbumGroup;
+  editingPath: string | null;
   onAdd: (track: Track) => void;
+  onSelect: (track: Track) => void;
   trackCountLabel: (count: number) => string;
   addTitle: string;
 }
 
-function FolderNode({ group, onAdd, trackCountLabel, addTitle }: FolderNodeProps) {
+function FolderNode({ group, editingPath, onAdd, onSelect, trackCountLabel, addTitle }: FolderNodeProps) {
   const [open, setOpen] = useState(false);
   return (
     <div className="library-folder">
@@ -70,7 +75,14 @@ function FolderNode({ group, onAdd, trackCountLabel, addTitle }: FolderNodeProps
       {open && (
         <div className="library-folder-tracks">
           {group.tracks.map((t) => (
-            <DraggableTrack key={t.absolutePath} track={t} onAdd={onAdd} addTitle={addTitle} />
+            <DraggableTrack
+              key={t.absolutePath}
+              track={t}
+              isEditing={t.absolutePath === editingPath}
+              onAdd={onAdd}
+              onSelect={onSelect}
+              addTitle={addTitle}
+            />
           ))}
         </div>
       )}
@@ -85,6 +97,8 @@ export function LibraryBrowser() {
   const scanLibrary = useLochordStore((s) => s.scanLibrary);
   const addTrackToPlaylist = useLochordStore((s) => s.addTrackToPlaylist);
   const selectedPlaylistPath = useLochordStore((s) => s.selectedPlaylistPath);
+  const selectTrackForEdit = useLochordStore((s) => s.selectTrackForEdit);
+  const selectedTrackForEdit = useLochordStore((s) => s.selectedTrackForEdit);
 
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -163,7 +177,9 @@ export function LibraryBrowser() {
             <FolderNode
               key={group.folder}
               group={group}
+              editingPath={selectedTrackForEdit?.absolutePath ?? null}
               onAdd={handleAdd}
+              onSelect={selectTrackForEdit}
               trackCountLabel={t.library.trackCount}
               addTitle={t.library.addToPlaylistTitle}
             />

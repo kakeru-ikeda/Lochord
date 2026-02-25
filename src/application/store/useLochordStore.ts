@@ -1,7 +1,9 @@
 import { Track } from "../../domain/entities/Track";
+import { AudioTags } from "../../domain/entities/AudioTags";
 import { Playlist } from "../../domain/entities/Playlist";
 import { SaveExtension } from "../../domain/entities/AppSettings";
 import { scanMusicDirectory, selectMusicRoot } from "../../infrastructure/tauri/fileSystemAdapter";
+import { readAudioTags, writeAudioTags } from "../../infrastructure/tauri/audioTagsAdapter";
 import { PlaylistRepository } from "../../infrastructure/repositories/PlaylistRepository";
 import { useSettingsStore } from "./useSettingsStore";
 import { create } from "zustand";
@@ -39,6 +41,12 @@ interface LochordState {
   // UI state
   errorMessage: string | null;
   clearError: () => void;
+
+  // Metadata editing
+  selectedTrackForEdit: Track | null;
+  isLoadingTags: boolean;
+  selectTrackForEdit: (track: Track | null) => void;
+  updateTrackMetadata: (absolutePath: string, tags: AudioTags) => Promise<void>;
 }
 
 /** Helper: auto-save if enabled */
@@ -70,6 +78,10 @@ export const useLochordStore = create<LochordState>()(
       playlists: [],
       selectedPlaylistPath: null,
       errorMessage: null,
+
+      // Metadata editing
+      selectedTrackForEdit: null,
+      isLoadingTags: false,
 
       setMusicRoot: (root) => set({ musicRoot: root }),
 
@@ -308,6 +320,79 @@ export const useLochordStore = create<LochordState>()(
       },
 
       clearError: () => set({ errorMessage: null }),
+
+      selectTrackForEdit: async (track) => {
+        if (!track) {
+          set({ selectedTrackForEdit: null });
+          return;
+        }
+        // Set immediately with basic info, then load full tags
+        set({ selectedTrackForEdit: track, isLoadingTags: true });
+        try {
+          const tags = await readAudioTags(track.absolutePath);
+          // Merge loaded tags (including cover art) into the track
+          set({
+            selectedTrackForEdit: {
+              ...track,
+              title: tags.title,
+              artist: tags.artist,
+              album: tags.album,
+              genre: tags.genre,
+              year: tags.year,
+              coverArt: tags.coverArt,
+            },
+            isLoadingTags: false,
+          });
+        } catch {
+          // Keep the track selected with whatever data we have
+          set({ isLoadingTags: false });
+        }
+      },
+
+      updateTrackMetadata: async (absolutePath, tags) => {
+        try {
+          await writeAudioTags(absolutePath, tags);
+
+          // Update track data across the app
+          const patch = {
+            title: tags.title,
+            artist: tags.artist,
+            album: tags.album,
+            genre: tags.genre,
+            year: tags.year,
+            coverArt: tags.coverArt,
+          };
+
+          const { libraryTracks, playlists, selectedTrackForEdit } = get();
+
+          // Update library tracks
+          const updatedLibrary = libraryTracks.map((t) =>
+            t.absolutePath === absolutePath ? { ...t, ...patch } : t
+          );
+
+          // Update all playlists containing this track
+          const updatedPlaylists = playlists.map((pl) => ({
+            ...pl,
+            tracks: pl.tracks.map((t) =>
+              t.absolutePath === absolutePath ? { ...t, ...patch } : t
+            ),
+          }));
+
+          // Update the selected track for edit
+          const updatedSelected =
+            selectedTrackForEdit?.absolutePath === absolutePath
+              ? { ...selectedTrackForEdit, ...patch }
+              : selectedTrackForEdit;
+
+          set({
+            libraryTracks: updatedLibrary,
+            playlists: updatedPlaylists,
+            selectedTrackForEdit: updatedSelected,
+          });
+        } catch (e) {
+          set({ errorMessage: `メタデータ保存エラー: ${e}` });
+        }
+      },
     }),
     {
       name: "lochord-storage",

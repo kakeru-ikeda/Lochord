@@ -34,11 +34,13 @@ const FORMAT_OPTIONS: { value: SaveExtension; label: string }[] = [
 interface SortableTrackRowProps {
   track: Track;
   index: number;
+  isEditing: boolean;
   onRemove: (absolutePath: string) => void;
+  onSelect: (track: Track) => void;
   removeTitle: string;
 }
 
-function SortableTrackRow({ track, index, onRemove, removeTitle }: SortableTrackRowProps) {
+function SortableTrackRow({ track, index, isEditing, onRemove, onSelect, removeTitle }: SortableTrackRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: track.absolutePath });
 
@@ -49,7 +51,12 @@ function SortableTrackRow({ track, index, onRemove, removeTitle }: SortableTrack
   };
 
   return (
-    <div ref={setNodeRef} style={style} className="track-row">
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`track-row ${isEditing ? "track-row-editing" : ""}`}
+      onClick={() => onSelect(track)}
+    >
       <span className="track-drag-handle" {...attributes} {...listeners}>
         <GripVertical size={14} />
       </span>
@@ -63,7 +70,10 @@ function SortableTrackRow({ track, index, onRemove, removeTitle }: SortableTrack
       <span className="track-duration">{formatDuration(track.duration)}</span>
       <button
         className="track-remove-btn"
-        onClick={() => onRemove(track.absolutePath)}
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemove(track.absolutePath);
+        }}
         title={removeTitle}
       >
         <Trash2 size={12} />
@@ -79,6 +89,8 @@ export function TrackList() {
   const removeTrackFromPlaylist = useLochordStore((s) => s.removeTrackFromPlaylist);
   const saveCurrentPlaylist = useLochordStore((s) => s.saveCurrentPlaylist);
   const saveCurrentPlaylistAs = useLochordStore((s) => s.saveCurrentPlaylistAs);
+  const selectTrackForEdit = useLochordStore((s) => s.selectTrackForEdit);
+  const selectedTrackForEdit = useLochordStore((s) => s.selectedTrackForEdit);
   const saveExtension = useSettingsStore((s) => s.settings.saveExtension);
 
   const t = useTranslation();
@@ -207,7 +219,9 @@ export function TrackList() {
                   key={track.absolutePath}
                   track={track}
                   index={i}
+                  isEditing={selectedTrackForEdit?.absolutePath === track.absolutePath}
                   onRemove={removeTrackFromPlaylist}
+                  onSelect={selectTrackForEdit}
                   removeTitle={t.tracklist.removeTitle}
                 />
               ))}

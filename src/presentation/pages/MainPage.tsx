@@ -11,6 +11,7 @@ import { useLochordStore } from "../../application/store/useLochordStore";
 import { PlaylistPanel } from "../components/PlaylistPanel/PlaylistPanel";
 import { TrackList } from "../components/TrackList/TrackList";
 import { LibraryBrowser } from "../components/LibraryBrowser/LibraryBrowser";
+import { MetadataEditor } from "../components/MetadataEditor/MetadataEditor";
 import { SettingsModal } from "../components/SettingsModal/SettingsModal";
 import { useTranslation } from "../hooks/useTranslation";
 import { FolderOpen, Music, Settings, X } from "lucide-react";
@@ -119,15 +120,20 @@ export function MainPage() {
             <PlaylistPanel />
           </aside>
 
-          {/* Center: Track list */}
+          {/* Center: Track list + Library */}
           <main className="center-pane">
-            <TrackList />
+            <div className="center-upper">
+              <TrackList />
+            </div>
+            <div className="center-lower">
+              <LibraryBrowser />
+            </div>
           </main>
-        </div>
 
-        {/* Bottom: Library browser */}
-        <div className="bottom-pane">
-          <LibraryBrowser />
+          {/* Right: Metadata editor */}
+          <aside className="right-pane">
+            <MetadataEditor />
+          </aside>
         </div>
 
         {/* Error toast */}
