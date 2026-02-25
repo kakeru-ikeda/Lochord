@@ -15,24 +15,50 @@ export function MetadataEditor() {
   // Local form state
   const [title, setTitle] = useState("");
   const [artist, setArtist] = useState("");
+  const [albumArtist, setAlbumArtist] = useState("");
   const [album, setAlbum] = useState("");
   const [genre, setGenre] = useState("");
   const [year, setYear] = useState("");
+  const [trackNumber, setTrackNumber] = useState("");
+  const [totalTracks, setTotalTracks] = useState("");
+  const [discNumber, setDiscNumber] = useState("");
+  const [totalDiscs, setTotalDiscs] = useState("");
+  const [composer, setComposer] = useState("");
+  const [comment, setComment] = useState("");
+  const [lyrics, setLyrics] = useState("");
+  const [bpm, setBpm] = useState("");
+  const [copyright, setCopyright] = useState("");
+  const [publisher, setPublisher] = useState("");
+  const [isrc, setIsrc] = useState("");
   const [coverArt, setCoverArt] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
+  const syncForm = (track: NonNullable<typeof selectedTrack>) => {
+    setTitle(track.title ?? "");
+    setArtist(track.artist ?? "");
+    setAlbumArtist(track.albumArtist ?? "");
+    setAlbum(track.album ?? "");
+    setGenre(track.genre ?? "");
+    setYear(track.year ? String(track.year) : "");
+    setTrackNumber(track.trackNumber ? String(track.trackNumber) : "");
+    setTotalTracks(track.totalTracks ? String(track.totalTracks) : "");
+    setDiscNumber(track.discNumber ? String(track.discNumber) : "");
+    setTotalDiscs(track.totalDiscs ? String(track.totalDiscs) : "");
+    setComposer(track.composer ?? "");
+    setComment(track.comment ?? "");
+    setLyrics(track.lyrics ?? "");
+    setBpm(track.bpm ? String(track.bpm) : "");
+    setCopyright(track.copyright ?? "");
+    setPublisher(track.publisher ?? "");
+    setIsrc(track.isrc ?? "");
+    setCoverArt(track.coverArt ?? "");
+    setSaveMessage(null);
+  };
+
   // Sync form when selected track changes
   useEffect(() => {
-    if (selectedTrack) {
-      setTitle(selectedTrack.title);
-      setArtist(selectedTrack.artist);
-      setAlbum(selectedTrack.album ?? "");
-      setGenre(selectedTrack.genre ?? "");
-      setYear(selectedTrack.year ? String(selectedTrack.year) : "");
-      setCoverArt(selectedTrack.coverArt ?? "");
-      setSaveMessage(null);
-    }
+    if (selectedTrack) syncForm(selectedTrack);
   }, [selectedTrack]);
 
   if (!selectedTrack) {
@@ -44,12 +70,26 @@ export function MetadataEditor() {
     );
   }
 
+  const num = (s: string) => (s ? parseInt(s, 10) || 0 : 0);
+
   const hasChanges =
-    title !== selectedTrack.title ||
-    artist !== selectedTrack.artist ||
+    title !== (selectedTrack.title ?? "") ||
+    artist !== (selectedTrack.artist ?? "") ||
+    albumArtist !== (selectedTrack.albumArtist ?? "") ||
     album !== (selectedTrack.album ?? "") ||
     genre !== (selectedTrack.genre ?? "") ||
     year !== (selectedTrack.year ? String(selectedTrack.year) : "") ||
+    trackNumber !== (selectedTrack.trackNumber ? String(selectedTrack.trackNumber) : "") ||
+    totalTracks !== (selectedTrack.totalTracks ? String(selectedTrack.totalTracks) : "") ||
+    discNumber !== (selectedTrack.discNumber ? String(selectedTrack.discNumber) : "") ||
+    totalDiscs !== (selectedTrack.totalDiscs ? String(selectedTrack.totalDiscs) : "") ||
+    composer !== (selectedTrack.composer ?? "") ||
+    comment !== (selectedTrack.comment ?? "") ||
+    lyrics !== (selectedTrack.lyrics ?? "") ||
+    bpm !== (selectedTrack.bpm ? String(selectedTrack.bpm) : "") ||
+    copyright !== (selectedTrack.copyright ?? "") ||
+    publisher !== (selectedTrack.publisher ?? "") ||
+    isrc !== (selectedTrack.isrc ?? "") ||
     coverArt !== (selectedTrack.coverArt ?? "");
 
   const handleSave = async () => {
@@ -59,9 +99,21 @@ export function MetadataEditor() {
       const tags: AudioTags = {
         title,
         artist,
+        albumArtist,
         album,
         genre,
-        year: year ? parseInt(year, 10) || 0 : 0,
+        year: num(year),
+        trackNumber: num(trackNumber),
+        totalTracks: num(totalTracks),
+        discNumber: num(discNumber),
+        totalDiscs: num(totalDiscs),
+        composer,
+        comment,
+        lyrics,
+        bpm: num(bpm),
+        copyright,
+        publisher,
+        isrc,
         coverArt,
       };
       await updateTrackMetadata(selectedTrack.absolutePath, tags);
@@ -75,13 +127,7 @@ export function MetadataEditor() {
   };
 
   const handleReset = () => {
-    setTitle(selectedTrack.title);
-    setArtist(selectedTrack.artist);
-    setAlbum(selectedTrack.album ?? "");
-    setGenre(selectedTrack.genre ?? "");
-    setYear(selectedTrack.year ? String(selectedTrack.year) : "");
-    setCoverArt(selectedTrack.coverArt ?? "");
-    setSaveMessage(null);
+    syncForm(selectedTrack);
   };
 
   const handleCoverSelect = () => {
@@ -151,43 +197,28 @@ export function MetadataEditor() {
         <div className="metadata-fields">
           <label className="metadata-label">
             <span>{t.metadata.title}</span>
-            <input
-              className="metadata-input"
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
+            <input className="metadata-input" type="text" value={title} onChange={(e) => setTitle(e.target.value)} />
           </label>
 
           <label className="metadata-label">
             <span>{t.metadata.artist}</span>
-            <input
-              className="metadata-input"
-              type="text"
-              value={artist}
-              onChange={(e) => setArtist(e.target.value)}
-            />
+            <input className="metadata-input" type="text" value={artist} onChange={(e) => setArtist(e.target.value)} />
+          </label>
+
+          <label className="metadata-label">
+            <span>{t.metadata.albumArtist}</span>
+            <input className="metadata-input" type="text" value={albumArtist} onChange={(e) => setAlbumArtist(e.target.value)} />
           </label>
 
           <label className="metadata-label">
             <span>{t.metadata.album}</span>
-            <input
-              className="metadata-input"
-              type="text"
-              value={album}
-              onChange={(e) => setAlbum(e.target.value)}
-            />
+            <input className="metadata-input" type="text" value={album} onChange={(e) => setAlbum(e.target.value)} />
           </label>
 
           <div className="metadata-row">
             <label className="metadata-label metadata-label-half">
               <span>{t.metadata.genre}</span>
-              <input
-                className="metadata-input"
-                type="text"
-                value={genre}
-                onChange={(e) => setGenre(e.target.value)}
-              />
+              <input className="metadata-input" type="text" value={genre} onChange={(e) => setGenre(e.target.value)} />
             </label>
             <label className="metadata-label metadata-label-quarter">
               <span>{t.metadata.year}</span>
@@ -200,6 +231,102 @@ export function MetadataEditor() {
               />
             </label>
           </div>
+
+          <div className="metadata-row">
+            <label className="metadata-label metadata-label-quarter">
+              <span>{t.metadata.trackNumber}</span>
+              <input
+                className="metadata-input"
+                type="text"
+                value={trackNumber}
+                onChange={(e) => setTrackNumber(e.target.value.replace(/\D/g, ""))}
+                maxLength={4}
+              />
+            </label>
+            <label className="metadata-label metadata-label-quarter">
+              <span>{t.metadata.totalTracks}</span>
+              <input
+                className="metadata-input"
+                type="text"
+                value={totalTracks}
+                onChange={(e) => setTotalTracks(e.target.value.replace(/\D/g, ""))}
+                maxLength={4}
+              />
+            </label>
+            <label className="metadata-label metadata-label-quarter">
+              <span>{t.metadata.discNumber}</span>
+              <input
+                className="metadata-input"
+                type="text"
+                value={discNumber}
+                onChange={(e) => setDiscNumber(e.target.value.replace(/\D/g, ""))}
+                maxLength={4}
+              />
+            </label>
+            <label className="metadata-label metadata-label-quarter">
+              <span>{t.metadata.totalDiscs}</span>
+              <input
+                className="metadata-input"
+                type="text"
+                value={totalDiscs}
+                onChange={(e) => setTotalDiscs(e.target.value.replace(/\D/g, ""))}
+                maxLength={4}
+              />
+            </label>
+          </div>
+
+          <label className="metadata-label">
+            <span>{t.metadata.composer}</span>
+            <input className="metadata-input" type="text" value={composer} onChange={(e) => setComposer(e.target.value)} />
+          </label>
+
+          <label className="metadata-label">
+            <span>{t.metadata.comment}</span>
+            <input className="metadata-input" type="text" value={comment} onChange={(e) => setComment(e.target.value)} />
+          </label>
+
+          <label className="metadata-label">
+            <span>{t.metadata.lyrics}</span>
+            <textarea
+              className="metadata-input metadata-textarea"
+              value={lyrics}
+              onChange={(e) => setLyrics(e.target.value)}
+              rows={4}
+            />
+          </label>
+
+          <div className="metadata-row">
+            <label className="metadata-label metadata-label-quarter">
+              <span>{t.metadata.bpm}</span>
+              <input
+                className="metadata-input"
+                type="text"
+                value={bpm}
+                onChange={(e) => setBpm(e.target.value.replace(/\D/g, ""))}
+                maxLength={4}
+              />
+            </label>
+            <label className="metadata-label metadata-label-threequarter">
+              <span>{t.metadata.isrc}</span>
+              <input
+                className="metadata-input"
+                type="text"
+                value={isrc}
+                onChange={(e) => setIsrc(e.target.value)}
+                maxLength={12}
+              />
+            </label>
+          </div>
+
+          <label className="metadata-label">
+            <span>{t.metadata.copyright}</span>
+            <input className="metadata-input" type="text" value={copyright} onChange={(e) => setCopyright(e.target.value)} />
+          </label>
+
+          <label className="metadata-label">
+            <span>{t.metadata.publisher}</span>
+            <input className="metadata-input" type="text" value={publisher} onChange={(e) => setPublisher(e.target.value)} />
+          </label>
         </div>
 
         {/* File info (read-only) */}

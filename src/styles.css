@@ -1476,6 +1476,17 @@ code {
   flex: 1;
 }
 
+.metadata-label-threequarter {
+  flex: 3;
+}
+
+.metadata-textarea {
+  resize: vertical;
+  min-height: 64px;
+  font-family: inherit;
+  line-height: 1.4;
+}
+
 /* File info */
 .metadata-info {
   display: flex;
