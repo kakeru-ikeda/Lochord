@@ -22,6 +22,7 @@ import { Track } from "../../../domain/entities/Track";
 import { SaveExtension } from "../../../domain/entities/AppSettings";
 import { formatDuration, playlistNameFromPath } from "../../../domain/rules/m3uPathResolver";
 import { useTranslation } from "../../hooks/useTranslation";
+import { useRubberBandSelect } from "../../hooks/useRubberBandSelect";
 import { ChevronDown, GripVertical, Save, Trash2 } from "lucide-react";
 
 const FORMAT_OPTIONS: { value: SaveExtension; label: string }[] = [
@@ -34,13 +35,13 @@ const FORMAT_OPTIONS: { value: SaveExtension; label: string }[] = [
 interface SortableTrackRowProps {
   track: Track;
   index: number;
-  isEditing: boolean;
+  isSelected: boolean;
   onRemove: (absolutePath: string) => void;
-  onSelect: (track: Track) => void;
+  onSelect: (track: Track, e: React.MouseEvent) => void;
   removeTitle: string;
 }
 
-function SortableTrackRow({ track, index, isEditing, onRemove, onSelect, removeTitle }: SortableTrackRowProps) {
+function SortableTrackRow({ track, index, isSelected, onRemove, onSelect, removeTitle }: SortableTrackRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: track.absolutePath });
 
@@ -54,8 +55,9 @@ function SortableTrackRow({ track, index, isEditing, onRemove, onSelect, removeT
     <div
       ref={setNodeRef}
       style={style}
-      className={`track-row ${isEditing ? "track-row-editing" : ""}`}
-      onClick={() => onSelect(track)}
+      data-track-path={track.absolutePath}
+      className={`track-row ${isSelected ? "track-row-editing" : ""}`}
+      onClick={(e) => onSelect(track, e)}
     >
       <span className="track-drag-handle" {...attributes} {...listeners}>
         <GripVertical size={14} />
@@ -89,13 +91,18 @@ export function TrackList() {
   const removeTrackFromPlaylist = useLochordStore((s) => s.removeTrackFromPlaylist);
   const saveCurrentPlaylist = useLochordStore((s) => s.saveCurrentPlaylist);
   const saveCurrentPlaylistAs = useLochordStore((s) => s.saveCurrentPlaylistAs);
-  const selectTrackForEdit = useLochordStore((s) => s.selectTrackForEdit);
-  const selectedTrackForEdit = useLochordStore((s) => s.selectedTrackForEdit);
+  const selectTracksForEdit = useLochordStore((s) => s.selectTracksForEdit);
+  const selectedTracksForEdit = useLochordStore((s) => s.selectedTracksForEdit);
   const saveExtension = useSettingsStore((s) => s.settings.saveExtension);
 
   const t = useTranslation();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const lastClickedPathRef = useRef<string | null>(null);
+  const tracklistBodyRef = useRef<HTMLDivElement>(null);
+
+  // Track selected paths as a Set for O(1) lookup
+  const selectedPathsSet = new Set(selectedTracksForEdit.map((t) => t.absolutePath));
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -112,16 +119,53 @@ export function TrackList() {
     await saveCurrentPlaylistAs(ext);
   };
 
+  const handleTrackSelect = (track: Track, e: React.MouseEvent) => {
+    const paths = tracks.map((t) => t.absolutePath);
+    let newPaths: Set<string>;
+
+    if (e.ctrlKey || e.metaKey) {
+      // Ctrl/Cmd+Click: toggle this track
+      newPaths = new Set(selectedPathsSet);
+      if (newPaths.has(track.absolutePath)) {
+        newPaths.delete(track.absolutePath);
+      } else {
+        newPaths.add(track.absolutePath);
+      }
+      lastClickedPathRef.current = track.absolutePath;
+    } else if (e.shiftKey && lastClickedPathRef.current) {
+      // Shift+Click: range select
+      const lastIdx = paths.indexOf(lastClickedPathRef.current);
+      const currIdx = paths.indexOf(track.absolutePath);
+      const [from, to] = lastIdx <= currIdx ? [lastIdx, currIdx] : [currIdx, lastIdx];
+      newPaths = new Set(paths.slice(from, to + 1));
+    } else {
+      // Plain click: single select
+      newPaths = new Set([track.absolutePath]);
+      lastClickedPathRef.current = track.absolutePath;
+    }
+
+    const newSelection = tracks.filter((t) => newPaths.has(t.absolutePath));
+    selectTracksForEdit(newSelection);
+  };
+
   const selectedPlaylist = playlists.find((p) => p.path === selectedPlaylistPath);
   const tracks = selectedPlaylist?.tracks ?? [];
   const isDirty = selectedPlaylist?.isDirty ?? false;
+
+  const { selectionRect, handleMouseDown: handleRubberBandMouseDown } = useRubberBandSelect(
+    tracklistBodyRef,
+    tracks,
+    (selected) => selectTracksForEdit(selected),
+  );
 
   // Compute total duration
   const totalSeconds = tracks.reduce((sum, t) => sum + (t.duration > 0 ? t.duration : 0), 0);
   const totalDuration = formatDuration(totalSeconds);
 
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 5 },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
@@ -129,10 +173,35 @@ export function TrackList() {
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    if (over && active.id !== over.id) {
-      const oldIndex = tracks.findIndex((t) => t.absolutePath === active.id);
-      const newIndex = tracks.findIndex((t) => t.absolutePath === over.id);
-      reorderTracks(arrayMove(tracks, oldIndex, newIndex));
+    if (!over || active.id === over.id) return;
+
+    const activeIdx = tracks.findIndex((t) => t.absolutePath === active.id);
+    const overIdx = tracks.findIndex((t) => t.absolutePath === over.id);
+
+    // 複数選択中のトラックを掴んだ場合は選択グループをまとめて移動
+    if (selectedPathsSet.has(String(active.id)) && selectedTracksForEdit.length > 1) {
+      const selectedInOrder = tracks.filter((t) => selectedPathsSet.has(t.absolutePath));
+      const unselected = tracks.filter((t) => !selectedPathsSet.has(t.absolutePath));
+
+      let insertAt: number;
+      if (!selectedPathsSet.has(String(over.id))) {
+        const overInUnselected = unselected.findIndex((t) => t.absolutePath === over.id);
+        // ドラッグ方向で挿入位置を決める
+        insertAt = overIdx > activeIdx ? overInUnselected + 1 : overInUnselected;
+      } else {
+        // over 対象も選択済み → overIdx より前にある非選択アイテム数を数える
+        insertAt = unselected.filter(
+          (t) => tracks.findIndex((u) => u.absolutePath === t.absolutePath) < overIdx,
+        ).length;
+      }
+
+      reorderTracks([
+        ...unselected.slice(0, insertAt),
+        ...selectedInOrder,
+        ...unselected.slice(insertAt),
+      ]);
+    } else {
+      reorderTracks(arrayMove(tracks, activeIdx, overIdx));
     }
   };
 
@@ -193,11 +262,16 @@ export function TrackList() {
       </div>
 
       {tracks.length === 0 ? (
-        <div className="tracklist-empty">
+        <div className="tracklist-empty" onClick={() => selectTracksForEdit([])}>
           <p>{t.tracklist.emptyHint}</p>
         </div>
       ) : (
-        <div className="tracklist-body">
+        <div
+          ref={tracklistBodyRef}
+          className="tracklist-body"
+          onMouseDown={handleRubberBandMouseDown}
+          onClick={(e) => { if (e.target === e.currentTarget) selectTracksForEdit([]); }}
+        >
           <div className="track-header-row">
             <span className="track-drag-handle" />
             <span className="track-index">#</span>
@@ -219,14 +293,25 @@ export function TrackList() {
                   key={track.absolutePath}
                   track={track}
                   index={i}
-                  isEditing={selectedTrackForEdit?.absolutePath === track.absolutePath}
+                  isSelected={selectedPathsSet.has(track.absolutePath)}
                   onRemove={removeTrackFromPlaylist}
-                  onSelect={selectTrackForEdit}
+                  onSelect={handleTrackSelect}
                   removeTitle={t.tracklist.removeTitle}
                 />
               ))}
             </SortableContext>
           </DndContext>
+          {selectionRect && (
+            <div
+              className="rubber-band-rect"
+              style={{
+                left: selectionRect.left,
+                top: selectionRect.top,
+                width: selectionRect.width,
+                height: selectionRect.height,
+              }}
+            />
+          )}
         </div>
       )}
     </div>

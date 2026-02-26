@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { useLochordStore } from "../../../application/store/useLochordStore";
 import { Track } from "../../../domain/entities/Track";
 import { formatDuration } from "../../../domain/rules/m3uPathResolver";
 import { ChevronDown, ChevronRight, FolderOpen, Music, Plus, RefreshCw, Search } from "lucide-react";
 import { useTranslation } from "../../hooks/useTranslation";
+import { useRubberBandSelect } from "../../hooks/useRubberBandSelect";
 
 interface AlbumGroup {
   folder: string;
@@ -13,13 +14,13 @@ interface AlbumGroup {
 
 interface DraggableTrackProps {
   track: Track;
-  isEditing: boolean;
+  isSelected: boolean;
   onAdd: (track: Track) => void;
-  onSelect: (track: Track) => void;
+  onSelect: (track: Track, e: React.MouseEvent) => void;
   addTitle: string;
 }
 
-function DraggableTrack({ track, isEditing, onAdd, onSelect, addTitle }: DraggableTrackProps) {
+function DraggableTrack({ track, isSelected, onAdd, onSelect, addTitle }: DraggableTrackProps) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `library-${track.absolutePath}`,
     data: { track },
@@ -28,8 +29,9 @@ function DraggableTrack({ track, isEditing, onAdd, onSelect, addTitle }: Draggab
   return (
     <div
       ref={setNodeRef}
-      className={`library-track ${isDragging ? "dragging" : ""} ${isEditing ? "library-track-editing" : ""}`}
-      onClick={() => onSelect(track)}
+      data-track-path={track.absolutePath}
+      className={`library-track ${isDragging ? "dragging" : ""} ${isSelected ? "library-track-editing" : ""}`}
+      onClick={(e) => onSelect(track, e)}
       {...attributes}
       {...listeners}
     >
@@ -52,14 +54,14 @@ function DraggableTrack({ track, isEditing, onAdd, onSelect, addTitle }: Draggab
 
 interface FolderNodeProps {
   group: AlbumGroup;
-  editingPath: string | null;
+  selectedPaths: Set<string>;
   onAdd: (track: Track) => void;
-  onSelect: (track: Track) => void;
+  onSelect: (track: Track, e: React.MouseEvent) => void;
   trackCountLabel: (count: number) => string;
   addTitle: string;
 }
 
-function FolderNode({ group, editingPath, onAdd, onSelect, trackCountLabel, addTitle }: FolderNodeProps) {
+function FolderNode({ group, selectedPaths, onAdd, onSelect, trackCountLabel, addTitle }: FolderNodeProps) {
   const [open, setOpen] = useState(false);
   return (
     <div className="library-folder">
@@ -78,7 +80,7 @@ function FolderNode({ group, editingPath, onAdd, onSelect, trackCountLabel, addT
             <DraggableTrack
               key={t.absolutePath}
               track={t}
-              isEditing={t.absolutePath === editingPath}
+              isSelected={selectedPaths.has(t.absolutePath)}
               onAdd={onAdd}
               onSelect={onSelect}
               addTitle={addTitle}
@@ -97,10 +99,14 @@ export function LibraryBrowser() {
   const scanLibrary = useLochordStore((s) => s.scanLibrary);
   const addTrackToPlaylist = useLochordStore((s) => s.addTrackToPlaylist);
   const selectedPlaylistPath = useLochordStore((s) => s.selectedPlaylistPath);
-  const selectTrackForEdit = useLochordStore((s) => s.selectTrackForEdit);
-  const selectedTrackForEdit = useLochordStore((s) => s.selectedTrackForEdit);
+  const selectTracksForEdit = useLochordStore((s) => s.selectTracksForEdit);
+  const selectedTracksForEdit = useLochordStore((s) => s.selectedTracksForEdit);
 
   const [searchQuery, setSearchQuery] = useState("");
+  const lastClickedPathRef = useRef<string | null>(null);
+  const libraryContentRef = useRef<HTMLDivElement>(null);
+
+  const selectedPathsSet = new Set(selectedTracksForEdit.map((t) => t.absolutePath));
 
   const t = useTranslation();
 
@@ -125,12 +131,54 @@ export function LibraryBrowser() {
     return Array.from(map.entries()).map(([folder, tracks]) => ({ folder, tracks }));
   }, [libraryTracks, searchQuery]);
 
+  // Flat ordered list of all visible tracks for range selection
+  const flatTracks = useMemo(() => albumGroups.flatMap((g) => g.tracks), [albumGroups]);
+
+  const { selectionRect, handleMouseDown: handleRubberBandMouseDown } = useRubberBandSelect(
+    libraryContentRef,
+    flatTracks,
+    (selected) => selectTracksForEdit(selected),
+  );
+
   const handleAdd = (track: Track) => {
     if (!selectedPlaylistPath) {
       useLochordStore.setState({ errorMessage: t.library.selectPlaylistFirst });
       return;
     }
-    addTrackToPlaylist(track);
+    // +ボタンを押したトラックが複数選択の中にある → 全選択を追加
+    if (selectedPathsSet.has(track.absolutePath) && selectedTracksForEdit.length > 1) {
+      for (const t of selectedTracksForEdit) {
+        addTrackToPlaylist(t);
+      }
+    } else {
+      addTrackToPlaylist(track);
+    }
+  };
+
+  const handleTrackSelect = (track: Track, e: React.MouseEvent) => {
+    const paths = flatTracks.map((t) => t.absolutePath);
+    let newPaths: Set<string>;
+
+    if (e.ctrlKey || e.metaKey) {
+      newPaths = new Set(selectedPathsSet);
+      if (newPaths.has(track.absolutePath)) {
+        newPaths.delete(track.absolutePath);
+      } else {
+        newPaths.add(track.absolutePath);
+      }
+      lastClickedPathRef.current = track.absolutePath;
+    } else if (e.shiftKey && lastClickedPathRef.current) {
+      const lastIdx = paths.indexOf(lastClickedPathRef.current);
+      const currIdx = paths.indexOf(track.absolutePath);
+      const [from, to] = lastIdx <= currIdx ? [lastIdx, currIdx] : [currIdx, lastIdx];
+      newPaths = new Set(paths.slice(from, to + 1));
+    } else {
+      newPaths = new Set([track.absolutePath]);
+      lastClickedPathRef.current = track.absolutePath;
+    }
+
+    const newSelection = flatTracks.filter((t) => newPaths.has(t.absolutePath));
+    selectTracksForEdit(newSelection);
   };
 
   return (
@@ -164,7 +212,12 @@ export function LibraryBrowser() {
         </button>
       </div>
 
-      <div className="library-content">
+      <div
+        ref={libraryContentRef}
+        className="library-content"
+        onMouseDown={handleRubberBandMouseDown}
+        onClick={(e) => { if (e.target === e.currentTarget) selectTracksForEdit([]); }}
+      >
         {isScanning && <p className="library-scanning">{t.library.scanning}</p>}
         {!isScanning && libraryTracks.length === 0 && (
           <p className="library-empty">{t.library.empty}</p>
@@ -177,13 +230,24 @@ export function LibraryBrowser() {
             <FolderNode
               key={group.folder}
               group={group}
-              editingPath={selectedTrackForEdit?.absolutePath ?? null}
+              selectedPaths={selectedPathsSet}
               onAdd={handleAdd}
-              onSelect={selectTrackForEdit}
+              onSelect={handleTrackSelect}
               trackCountLabel={t.library.trackCount}
               addTitle={t.library.addToPlaylistTitle}
             />
           ))}
+        {selectionRect && (
+          <div
+            className="rubber-band-rect"
+            style={{
+              left: selectionRect.left,
+              top: selectionRect.top,
+              width: selectionRect.width,
+              height: selectionRect.height,
+            }}
+          />
+        )}
       </div>
     </div>
   );

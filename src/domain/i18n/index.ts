@@ -67,7 +67,10 @@ export type Translations = {
         relative: { label: string; desc: string };
         absolute: { label: string; desc: string };
         relativeFromRoot: { label: string; desc: string };
+        relativeFromPrefix: { label: string; desc: string };
       };
+      pathPrefixLabel: string;
+      pathPrefixPlaceholder: string;
       dirLabel: string;
       dirPlaceholder: string;
       dirReset: string;
@@ -101,6 +104,9 @@ export type Translations = {
   metadata: {
     header: string;
     selectPrompt: string;
+    multiSelectHeader: (count: number) => string;
+    multipleValues: string;
+    multiSaveSuccess: (count: number) => string;
     title: string;
     artist: string;
     albumArtist: string;

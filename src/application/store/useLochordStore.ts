@@ -44,9 +44,12 @@ interface LochordState {
 
   // Metadata editing
   selectedTrackForEdit: Track | null;
+  selectedTracksForEdit: Track[];
   isLoadingTags: boolean;
   selectTrackForEdit: (track: Track | null) => void;
+  selectTracksForEdit: (tracks: Track[]) => Promise<void>;
   updateTrackMetadata: (absolutePath: string, tags: AudioTags) => Promise<void>;
+  updateMultipleTracksMetadata: (absolutePaths: string[], tags: Partial<AudioTags>) => Promise<void>;
 }
 
 /** Helper: auto-save if enabled */
@@ -64,6 +67,7 @@ function buildSaveOptions(musicRoot: string | null) {
   return {
     path_mode: settings.pathMode,
     music_root: musicRoot,
+    path_prefix: settings.pathPrefix,
     format: settings.saveExtension,
   };
 }
@@ -81,6 +85,7 @@ export const useLochordStore = create<LochordState>()(
 
       // Metadata editing
       selectedTrackForEdit: null,
+      selectedTracksForEdit: [],
       isLoadingTags: false,
 
       setMusicRoot: (root) => set({ musicRoot: root }),
@@ -293,6 +298,7 @@ export const useLochordStore = create<LochordState>()(
           await repo.savePlaylist(newPath, playlist.tracks, {
             path_mode: settings.pathMode,
             music_root: musicRoot,
+            path_prefix: settings.pathPrefix,
             format: ext,
           });
 
@@ -321,18 +327,23 @@ export const useLochordStore = create<LochordState>()(
 
       clearError: () => set({ errorMessage: null }),
 
-      selectTrackForEdit: async (track) => {
-        if (!track) {
-          set({ selectedTrackForEdit: null });
+      selectTrackForEdit: (track) => {
+        // Convenience wrapper for single-track selection
+        get().selectTracksForEdit(track ? [track] : []);
+      },
+
+      selectTracksForEdit: async (tracks) => {
+        if (tracks.length === 0) {
+          set({ selectedTrackForEdit: null, selectedTracksForEdit: [], isLoadingTags: false });
           return;
         }
-        // Set immediately with basic info, then load full tags
-        set({ selectedTrackForEdit: track, isLoadingTags: true });
-        try {
-          const tags = await readAudioTags(track.absolutePath);
-          // Merge loaded tags (including cover art) into the track
-          set({
-            selectedTrackForEdit: {
+        if (tracks.length === 1) {
+          const track = tracks[0];
+          // Set immediately with basic info, then load full tags
+          set({ selectedTrackForEdit: track, selectedTracksForEdit: [track], isLoadingTags: true });
+          try {
+            const tags = await readAudioTags(track.absolutePath);
+            const loaded: Track = {
               ...track,
               title: tags.title,
               artist: tags.artist,
@@ -352,12 +363,37 @@ export const useLochordStore = create<LochordState>()(
               publisher: tags.publisher,
               isrc: tags.isrc,
               coverArt: tags.coverArt,
-            },
-            isLoadingTags: false,
-          });
-        } catch {
-          // Keep the track selected with whatever data we have
-          set({ isLoadingTags: false });
+            };
+            set({
+              selectedTrackForEdit: loaded,
+              selectedTracksForEdit: [loaded],
+              isLoadingTags: false,
+            });
+          } catch {
+            set({ isLoadingTags: false });
+          }
+        } else {
+          // Multi-select: read tags from disk in parallel to get accurate coverArt etc.
+          set({ selectedTrackForEdit: tracks[0], selectedTracksForEdit: tracks, isLoadingTags: true });
+          try {
+            const loadedTracks = await Promise.all(
+              tracks.map(async (track) => {
+                try {
+                  const tags = await readAudioTags(track.absolutePath);
+                  return { ...track, ...tags };
+                } catch {
+                  return track; // fallback to in-memory on error
+                }
+              })
+            );
+            set({
+              selectedTrackForEdit: loadedTracks[0],
+              selectedTracksForEdit: loadedTracks,
+              isLoadingTags: false,
+            });
+          } catch {
+            set({ isLoadingTags: false });
+          }
         }
       },
 
@@ -387,7 +423,7 @@ export const useLochordStore = create<LochordState>()(
             coverArt: tags.coverArt,
           };
 
-          const { libraryTracks, playlists, selectedTrackForEdit } = get();
+          const { libraryTracks, playlists, selectedTrackForEdit, selectedTracksForEdit } = get();
 
           // Update library tracks
           const updatedLibrary = libraryTracks.map((t) =>
@@ -408,13 +444,107 @@ export const useLochordStore = create<LochordState>()(
               ? { ...selectedTrackForEdit, ...patch }
               : selectedTrackForEdit;
 
+          const updatedSelections = selectedTracksForEdit.map((t) =>
+            t.absolutePath === absolutePath ? { ...t, ...patch } : t
+          );
+
           set({
             libraryTracks: updatedLibrary,
             playlists: updatedPlaylists,
             selectedTrackForEdit: updatedSelected,
+            selectedTracksForEdit: updatedSelections,
           });
         } catch (e) {
           set({ errorMessage: `メタデータ保存エラー: ${e}` });
+        }
+      },
+
+      updateMultipleTracksMetadata: async (absolutePaths, partialTags) => {
+        const { selectedTracksForEdit, libraryTracks, playlists } = get();
+
+        type WriteResult = { absolutePath: string; patch: Partial<Track> };
+        const results: WriteResult[] = [];
+        const errors: string[] = [];
+
+        for (const absolutePath of absolutePaths) {
+          // Find current in-memory track data
+          const track =
+            selectedTracksForEdit.find((t) => t.absolutePath === absolutePath) ??
+            libraryTracks.find((t) => t.absolutePath === absolutePath);
+          if (!track) continue;
+
+          // Merge: current track data + partial override
+          const fullTags: AudioTags = {
+            title: track.title,
+            artist: track.artist,
+            albumArtist: track.albumArtist,
+            album: track.album,
+            genre: track.genre,
+            year: track.year,
+            trackNumber: track.trackNumber,
+            totalTracks: track.totalTracks,
+            discNumber: track.discNumber,
+            totalDiscs: track.totalDiscs,
+            composer: track.composer,
+            comment: track.comment,
+            lyrics: track.lyrics,
+            bpm: track.bpm,
+            copyright: track.copyright,
+            publisher: track.publisher,
+            isrc: track.isrc,
+            coverArt: track.coverArt,
+            ...partialTags,
+          };
+
+          try {
+            await writeAudioTags(absolutePath, fullTags);
+            results.push({ absolutePath, patch: fullTags });
+          } catch (e) {
+            errors.push(`${absolutePath}: ${e}`);
+          }
+        }
+
+        if (results.length === 0) {
+          set({ errorMessage: `メタデータ保存エラー: ${errors.join(", ")}` });
+          return;
+        }
+
+        // Build patch map
+        const patchMap = new Map(results.map(({ absolutePath, patch }) => [absolutePath, patch]));
+
+        const { selectedTrackForEdit, selectedTracksForEdit: currentSelections } = get();
+
+        const updatedLibrary = libraryTracks.map((t) => {
+          const p = patchMap.get(t.absolutePath);
+          return p ? { ...t, ...p } : t;
+        });
+
+        const updatedPlaylists = playlists.map((pl) => ({
+          ...pl,
+          tracks: pl.tracks.map((t) => {
+            const p = patchMap.get(t.absolutePath);
+            return p ? { ...t, ...p } : t;
+          }),
+        }));
+
+        const updatedSelected = selectedTrackForEdit && patchMap.has(selectedTrackForEdit.absolutePath)
+          ? { ...selectedTrackForEdit, ...patchMap.get(selectedTrackForEdit.absolutePath) }
+          : selectedTrackForEdit;
+
+        const updatedSelections = currentSelections.map((t) => {
+          const p = patchMap.get(t.absolutePath);
+          return p ? { ...t, ...p } : t;
+        });
+
+        set({
+          libraryTracks: updatedLibrary,
+          playlists: updatedPlaylists,
+          selectedTrackForEdit: updatedSelected,
+          selectedTracksForEdit: updatedSelections,
+        });
+
+        if (errors.length > 0) {
+          set({ errorMessage: `一部のメタデータ保存に失敗しました: ${errors.join(", ")}` });
         }
       },
     }),

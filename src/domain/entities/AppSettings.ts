@@ -1,4 +1,4 @@
-export type PathMode = "relative" | "absolute" | "relative-from-root";
+export type PathMode = "relative" | "absolute" | "relative-from-root" | "relative-from-prefix";
 export type SaveExtension = "m3u8" | "m3u" | "txt" | "csv";
 export type ColorTheme = "dark" | "light" | "system";
 export type Language = "ja" | "en" | "ko" | "zh";
@@ -6,6 +6,7 @@ export type Language = "ja" | "en" | "ko" | "zh";
 export interface AppSettings {
   // Playlist
   pathMode: PathMode;
+  pathPrefix: string | null; // prefix for "relative-from-prefix" mode
   playlistDir: string | null; // null = {musicRoot}/Playlists/
   saveExtension: SaveExtension;
   autoSave: boolean;
@@ -21,6 +22,7 @@ export interface AppSettings {
 
 export const DEFAULT_SETTINGS: AppSettings = {
   pathMode: "relative",
+  pathPrefix: null,
   playlistDir: null,
   saveExtension: "m3u8",
   autoSave: false,

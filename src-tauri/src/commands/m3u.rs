@@ -6,10 +6,12 @@ use walkdir::WalkDir;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct PlaylistSaveOptions {
-    /// "relative" | "absolute" | "relative-from-root"
+    /// "relative" | "absolute" | "relative-from-root" | "relative-from-prefix"
     pub path_mode: String,
-    /// Music root directory (used for relative-from-root mode)
+    /// Music root directory (used for relative-from-root / relative-from-prefix mode)
     pub music_root: Option<String>,
+    /// Path prefix prepended to the relative-from-root path (used for relative-from-prefix mode)
+    pub path_prefix: Option<String>,
     /// "m3u8" | "m3u" | "txt" | "csv"
     pub format: String,
 }
@@ -108,6 +110,7 @@ pub async fn save_playlist(
     let opts = options.unwrap_or(PlaylistSaveOptions {
         path_mode: "relative".to_string(),
         music_root: None,
+        path_prefix: None,
         format: "m3u8".to_string(),
     });
 
@@ -149,6 +152,32 @@ fn resolve_track_path(track: &Track, playlist_dir: &Path, opts: &PlaylistSaveOpt
                 let abs_path = Path::new(&track.absolute_path);
                 let rel = compute_relative_path(playlist_dir, abs_path);
                 rel.replace('\\', "/")
+            }
+        }
+        "relative-from-prefix" => {
+            let prefix = opts.path_prefix.as_deref().unwrap_or("");
+            let relative_part = if let Some(ref root) = opts.music_root {
+                let root_path = Path::new(root);
+                let abs_path = Path::new(&track.absolute_path);
+                abs_path
+                    .strip_prefix(root_path)
+                    .map(|p| p.to_string_lossy().to_string().replace('\\', "/"))
+                    .unwrap_or_else(|_| {
+                        let rel = compute_relative_path(playlist_dir, abs_path);
+                        rel.replace('\\', "/")
+                    })
+            } else {
+                // Fall back to filename only if no music root is set
+                Path::new(&track.absolute_path)
+                    .file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_else(|| track.absolute_path.replace('\\', "/"))
+            };
+            if prefix.is_empty() {
+                relative_part
+            } else {
+                let prefix = prefix.trim_end_matches('/');
+                format!("{}/{}", prefix, relative_part)
             }
         }
         _ => {

@@ -409,6 +409,7 @@ code {
 .tracklist-body {
   flex: 1;
   overflow-y: auto;
+  user-select: none;
 }
 
 .track-header-row {
@@ -1485,6 +1486,71 @@ code {
   min-height: 64px;
   font-family: inherit;
   line-height: 1.4;
+}
+
+/* Multi-edit: touched field highlight */
+.metadata-input-touched {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, var(--bg));
+}
+
+/* Multi-edit: changed fields hint */
+.metadata-multi-hint {
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg));
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: var(--radius);
+  text-align: center;
+}
+
+/* Rubber band selection rect */
+.rubber-band-rect {
+  position: fixed;
+  pointer-events: none;
+  border: 1px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  z-index: 9999;
+}
+
+/* Drag overlay — ライブラリからドラッグ中のプレビュー */
+.drag-overlay-track {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: var(--radius);
+  background: var(--bg-hover);
+  border: 1px solid var(--accent);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  max-width: 280px;
+  cursor: grabbing;
+  user-select: none;
+}
+
+.drag-overlay-icon {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.drag-overlay-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.drag-overlay-badge {
+  flex-shrink: 0;
+  background: var(--accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 99px;
 }
 
 /* File info */

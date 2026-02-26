@@ -31,6 +31,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
     { value: "relative", ...t.settings.playlist.pathModes.relative },
     { value: "absolute", ...t.settings.playlist.pathModes.absolute },
     { value: "relative-from-root", ...t.settings.playlist.pathModes.relativeFromRoot },
+    { value: "relative-from-prefix", ...t.settings.playlist.pathModes.relativeFromPrefix },
   ];
 
   // theme options derived from translations
@@ -158,6 +159,22 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                     </label>
                   ))}
                 </div>
+
+                {/* Path prefix (only shown when relative-from-prefix is selected) */}
+                {draft.pathMode === "relative-from-prefix" && (
+                  <div className="settings-group">
+                    <label className="settings-label">{t.settings.playlist.pathPrefixLabel}</label>
+                    <input
+                      type="text"
+                      className="settings-input"
+                      value={draft.pathPrefix ?? ""}
+                      placeholder={t.settings.playlist.pathPrefixPlaceholder}
+                      onChange={(e) =>
+                        updateDraft({ pathPrefix: e.target.value || null })
+                      }
+                    />
+                  </div>
+                )}
 
                 {/* Playlist directory */}
                 <div className="settings-group">

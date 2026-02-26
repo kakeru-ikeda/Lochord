@@ -4,6 +4,7 @@ import { Track } from "../../domain/entities/Track";
 export interface PlaylistSaveOptions {
   path_mode: string;
   music_root: string | null;
+  path_prefix: string | null;
   format: string;
 }
 

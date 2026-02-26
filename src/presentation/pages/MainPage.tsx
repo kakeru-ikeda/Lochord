@@ -3,6 +3,7 @@ import {
   DndContext,
   DragEndEvent,
   DragOverlay,
+  DragStartEvent,
   PointerSensor,
   useSensor,
   useSensors,
@@ -15,6 +16,7 @@ import { MetadataEditor } from "../components/MetadataEditor/MetadataEditor";
 import { SettingsModal } from "../components/SettingsModal/SettingsModal";
 import { useTranslation } from "../hooks/useTranslation";
 import { FolderOpen, Music, Settings, X } from "lucide-react";
+import type { Track } from "../../domain/entities/Track";
 
 export function MainPage() {
   const musicRoot = useLochordStore((s) => s.musicRoot);
@@ -22,12 +24,14 @@ export function MainPage() {
   const scanLibrary = useLochordStore((s) => s.scanLibrary);
   const selectMusicRoot = useLochordStore((s) => s.selectMusicRoot);
   const addTrackToPlaylist = useLochordStore((s) => s.addTrackToPlaylist);
+  const selectedTracksForEdit = useLochordStore((s) => s.selectedTracksForEdit);
   const saveCurrentPlaylist = useLochordStore((s) => s.saveCurrentPlaylist);
   const createPlaylist = useLochordStore((s) => s.createPlaylist);
   const errorMessage = useLochordStore((s) => s.errorMessage);
   const clearError = useLochordStore((s) => s.clearError);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [activeDragTrack, setActiveDragTrack] = useState<Track | null>(null);
 
   const t = useTranslation();
 
@@ -72,17 +76,36 @@ export function MainPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
-  const sensors = useSensors(useSensor(PointerSensor));
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      // 8px 以上動かさないとドラッグ開始しない → クリックと区別できる
+      activationConstraint: { distance: 8 },
+    })
+  );
 
   const handleDragEnd = (event: DragEndEvent) => {
+    setActiveDragTrack(null);
     const { active } = event;
-    if (active.data.current?.track) {
-      addTrackToPlaylist(active.data.current.track);
+    const draggedTrack = active.data.current?.track;
+    if (!draggedTrack) return;
+
+    // ドラッグしたトラックが複数選択の中に含まれていれば全選択を追加
+    const selectedPaths = new Set(selectedTracksForEdit.map((t) => t.absolutePath));
+    if (selectedPaths.has(draggedTrack.absolutePath) && selectedTracksForEdit.length > 1) {
+      for (const track of selectedTracksForEdit) {
+        addTrackToPlaylist(track);
+      }
+    } else {
+      addTrackToPlaylist(draggedTrack);
     }
   };
 
   return (
-    <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+    <DndContext
+      sensors={sensors}
+      onDragStart={(e: DragStartEvent) => setActiveDragTrack(e.active.data.current?.track ?? null)}
+      onDragEnd={handleDragEnd}
+    >
       <div className="main-layout">
         {/* Header */}
         <header className="app-header">
@@ -146,7 +169,23 @@ export function MainPage() {
           </div>
         )}
       </div>
-      <DragOverlay />
+      <DragOverlay dropAnimation={null}>
+        {activeDragTrack && (() => {
+          const selectedPaths = new Set(selectedTracksForEdit.map((t) => t.absolutePath));
+          const count = selectedPaths.has(activeDragTrack.absolutePath) && selectedTracksForEdit.length > 1
+            ? selectedTracksForEdit.length
+            : 1;
+          return (
+            <div className="drag-overlay-track">
+              <Music size={12} className="drag-overlay-icon" />
+              <span className="drag-overlay-title">{activeDragTrack.title}</span>
+              {count > 1 && (
+                <span className="drag-overlay-badge">{count}</span>
+              )}
+            </div>
+          );
+        })()}
+      </DragOverlay>
 
       {/* Settings modal */}
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
