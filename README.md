@@ -1,64 +1,93 @@
 # Lochord
 
-ローカル音楽ライブラリの M3U8 プレイリストを GUI で管理するデスクトップアプリ。
+A desktop app to manage local music library playlists (M3U8) with a GUI.
 
 ![Lochord](https://img.shields.io/badge/Tauri-v2-blue) ![React](https://img.shields.io/badge/React-19-blue) ![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue) ![Rust](https://img.shields.io/badge/Rust-1.77-orange)
 
-## 機能
+**Language / 言語:** [English](README.md) | [日本語](docs/README.ja.md) | [한국어](docs/README.ko.md) | [中文](docs/README.zh.md)
 
-- 🎵 音楽ルートディレクトリの選択（初回オンボーディング）
-- 📂 音楽ファイルのライブラリスキャン・フォルダツリー表示
-- 📋 プレイリストの新規作成・一覧表示・削除
-- ➕ プレイリストへの曲追加（[+]ボタン または ドラッグ&ドロップ）
-- ↕️ プレイリスト内の曲の削除・並び替え（dnd-kit）
-- 💾 M3U8 ファイルとして `Music/Playlists/` 配下に保存（UTF-8）
-- 📖 既存 M3U8 の読み込み・編集
+## Features
 
-## 対応フォーマット
+### Library
 
-`flac` / `mp3` / `aac` / `wav` / `m4a`
+- 🎵 Select music root directory (first-launch onboarding)
+- 📂 Scan music files and display as a folder tree
+- 🔍 Text search / filter within the library
+- 🖱️ Multi-track selection (rubber-band drag, Shift/Ctrl click)
 
-## セットアップ
+### Playlists
 
-### 必要環境
+- 📋 Create, list, and delete playlists
+- ➕ Add tracks via [+] button or drag & drop
+- ↕️ Remove and reorder tracks within a playlist (dnd-kit)
+- 💾 Save as M3U8 / M3U / TXT / CSV (UTF-8)
+- 📖 Load and edit existing M3U8 files
+- ⚡ Auto-save (enable in Settings)
+
+### Metadata Editor
+
+- 🏷️ Edit ID3 tags: title, artist, album artist, album, genre, year
+- 🔢 Edit track number, disc number, BPM
+- 📝 Edit composer, comment, lyrics, copyright, publisher, ISRC
+- 🖼️ Preview and change cover art
+- 🗂️ Batch edit multiple tracks at once
+
+### Settings & UI
+
+- ⚙️ Settings modal (Ctrl+,)
+  - Path format: relative / absolute / relative from root / relative from prefix
+  - Customizable playlist save directory
+  - Save extension: m3u8 / m3u / txt / csv
+  - Customizable scan extensions and exclude patterns
+- 🎨 Color theme: Dark / Light / Follow system
+- 🌐 Multilingual UI: English / Japanese / Korean / Chinese
+- ⌨️ Keyboard shortcuts: Ctrl+S (save) / Ctrl+N (new) / F5 (rescan) / Ctrl+, (settings)
+
+## Supported Formats
+
+`flac` / `mp3` / `aac` / `wav` / `m4a` / `ogg` / `opus`
+
+## Setup
+
+### Requirements
 
 - [Node.js](https://nodejs.org/) 18+
 - [Rust](https://rustup.rs/) (stable)
-- Tauri システム依存関係:
+- Tauri system dependencies:
   - **Linux**: `libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev`
   - **macOS**: Xcode Command Line Tools
-  - **Windows**: WebView2 (Windows 10/11 標準搭載)
+  - **Windows**: WebView2 (included in Windows 10/11)
 
-### インストール
+### Install
 
 ```bash
-# リポジトリをクローン
+# Clone the repository
 git clone https://github.com/kakeru-ikeda/Lochord.git
 cd Lochord
 
-# フロントエンド依存関係のインストール
+# Install frontend dependencies
 npm install
 ```
 
-## 開発
+## Development
 
 ```bash
-# 開発サーバー起動（ホットリロード有効）
+# Start dev server with hot reload
 npm run tauri dev
 ```
 
-## ビルド
+## Build
 
 ```bash
-# プロダクションビルド
+# Production build
 npm run tauri build
 ```
 
-生成されたインストーラーは `src-tauri/target/release/bundle/` に出力されます。
+The generated installer will be output to `src-tauri/target/release/bundle/`.
 
-## アーキテクチャ
+## Architecture
 
-レイヤードアーキテクチャを採用しています。詳細は [docs/design.md](docs/design.md) を参照してください。
+Lochord uses a layered architecture. See [docs/design.md](docs/design.md) for details.
 
 ```
 src/
@@ -69,31 +98,32 @@ src/
 
 src-tauri/src/
 ├── commands/
-│   ├── fs.rs       ← ファイルシステム・スキャン
-│   └── m3u.rs      ← M3U8 読み書き
+│   ├── fs.rs       ← File system & scan
+│   └── m3u.rs      ← M3U8 read/write
 └── lib.rs
 ```
 
-## ディレクトリ構成（運用）
+## Directory Layout (runtime)
 
 ```
-Music/                          ← ルート（アプリ起動時に指定）
-├── Playlists/                  ← M3U8 置き場（自動生成）
-│   ├── お気に入り.m3u8
-│   └── 作業用BGM.m3u8
+Music/                          ← Root (selected at launch)
+├── Playlists/                  ← M3U8 storage (auto-created)
+│   ├── Favorites.m3u8
+│   └── Work BGM.m3u8
 ├── Artist - Album (Year) [format]/
 │   ├── 01. TrackTitle.flac
 │   └── 02. TrackTitle.flac
 └── ...
 ```
 
-## 技術スタック
+## Tech Stack
 
-| レイヤー | 技術 |
-|---|---|
-| アプリフレームワーク | Tauri v2 |
-| フロントエンド | React 19 + TypeScript |
-| 状態管理 | Zustand |
-| ドラッグ&ドロップ | dnd-kit |
-| バックエンド | Rust |
-| プレイリスト形式 | M3U8（UTF-8） |
+| Layer            | Technology                     |
+| ---------------- | ------------------------------ |
+| App framework    | Tauri v2                       |
+| Frontend         | React 19 + TypeScript          |
+| State management | Zustand                        |
+| Drag & drop      | dnd-kit                        |
+| Icons            | lucide-react                   |
+| Backend          | Rust                           |
+| Playlist format  | M3U8 / M3U / TXT / CSV (UTF-8) |
