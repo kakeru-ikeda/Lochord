@@ -31,6 +31,7 @@ function DraggableTrack({ track, isSelected, onAdd, onSelect, addTitle }: Dragga
       ref={setNodeRef}
       data-track-path={track.absolutePath}
       className={`library-track ${isDragging ? "dragging" : ""} ${isSelected ? "library-track-editing" : ""}`}
+      onMouseDown={(e) => { if (e.shiftKey) e.preventDefault(); }}
       onClick={(e) => onSelect(track, e)}
       {...attributes}
       {...listeners}

@@ -57,6 +57,7 @@ function SortableTrackRow({ track, index, isSelected, onRemove, onSelect, remove
       style={style}
       data-track-path={track.absolutePath}
       className={`track-row ${isSelected ? "track-row-editing" : ""}`}
+      onMouseDown={(e) => { if (e.shiftKey) e.preventDefault(); }}
       onClick={(e) => onSelect(track, e)}
     >
       <span className="track-drag-handle" {...attributes} {...listeners}>
