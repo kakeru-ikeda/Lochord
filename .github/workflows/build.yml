@@ -71,6 +71,31 @@ jobs:
 
           echo "TAURI_ARGS=--config win-sign-override.json" >> $env:GITHUB_ENV
 
+      # タグ push 時: package.json / tauri.conf.json / Cargo.toml のバージョンをタグに合わせて更新
+      - name: Update version from tag
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: node {0}
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          const fs = require('fs');
+          const version = process.env.TAG_NAME.replace(/^v/, '');
+
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf-8'));
+          pkg.version = version;
+          fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+
+          const conf = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json', 'utf-8'));
+          conf.version = version;
+          fs.writeFileSync('src-tauri/tauri.conf.json', JSON.stringify(conf, null, 2) + '\n');
+
+          // Cargo.toml の [package] version のみ更新（依存クレートの version は変更しない）
+          let cargo = fs.readFileSync('src-tauri/Cargo.toml', 'utf-8');
+          cargo = cargo.replace(/^version = "[^"]*"/m, `version = "${version}"`);
+          fs.writeFileSync('src-tauri/Cargo.toml', cargo);
+
+          console.log(`Version updated to: ${version}`);
+
       - name: Install frontend dependencies
         run: npm install
 
