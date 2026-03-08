@@ -81,20 +81,25 @@ jobs:
           const fs = require('fs');
           const version = process.env.TAG_NAME.replace(/^v/, '');
 
+          // MSI は pre-release 識別子が数値のみという制約があるため、
+          // tauri.conf.json / Cargo.toml には数値のみのバージョン (x.y.z) を書く。
+          // package.json はフルバージョンをそのまま使う。
+          const bundleVersion = version.replace(/-.*$/, '');
+
           const pkg = JSON.parse(fs.readFileSync('package.json', 'utf-8'));
           pkg.version = version;
           fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
 
           const conf = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json', 'utf-8'));
-          conf.version = version;
+          conf.version = bundleVersion;
           fs.writeFileSync('src-tauri/tauri.conf.json', JSON.stringify(conf, null, 2) + '\n');
 
           // Cargo.toml の [package] version のみ更新（依存クレートの version は変更しない）
           let cargo = fs.readFileSync('src-tauri/Cargo.toml', 'utf-8');
-          cargo = cargo.replace(/^version = "[^"]*"/m, `version = "${version}"`);
+          cargo = cargo.replace(/^version = "[^"]*"/m, `version = "${bundleVersion}"`);
           fs.writeFileSync('src-tauri/Cargo.toml', cargo);
 
-          console.log(`Version updated to: ${version}`);
+          console.log(`Tag version: ${version}  /  Bundle version: ${bundleVersion}`);
 
       - name: Install frontend dependencies
         run: npm install
