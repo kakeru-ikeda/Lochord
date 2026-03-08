@@ -1,7 +1,8 @@
 mod commands;
 
 use commands::fs::{
-    read_audio_tags, scan_music_directory, select_directory, select_music_root, write_audio_tags,
+    open_path, read_audio_tags, reveal_item_in_dir, scan_music_directory, select_directory,
+    select_music_root, write_audio_tags,
 };
 use commands::m3u::{delete_playlist, list_playlists, load_playlist, save_playlist};
 
@@ -20,6 +21,8 @@ pub fn run() {
             load_playlist,
             save_playlist,
             delete_playlist,
+            open_path,
+            reveal_item_in_dir,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -17,6 +17,8 @@ export const ko: Translations = {
     deleteConfirm: "삭제",
     deleteCancel: "취소",
     newNamePrompt: "새 플레이리스트 이름:",
+    openFileTitle: "파일 열기",
+    openFolderTitle: "폴더 열기",
   },
   tracklist: {
     selectPrompt: "← 플레이리스트를 선택하세요",

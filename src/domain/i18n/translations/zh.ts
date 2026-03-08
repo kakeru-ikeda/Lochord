@@ -17,6 +17,8 @@ export const zh: Translations = {
     deleteConfirm: "删除",
     deleteCancel: "取消",
     newNamePrompt: "新播放列表名称：",
+    openFileTitle: "打开文件",
+    openFolderTitle: "打开文件夹",
   },
   tracklist: {
     selectPrompt: "← 请选择播放列表",

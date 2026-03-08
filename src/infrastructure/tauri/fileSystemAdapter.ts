@@ -20,3 +20,11 @@ export async function scanMusicDirectory(
     excludePatterns: excludePatterns ?? null,
   });
 }
+
+export async function openPath(path: string): Promise<void> {
+  return invoke<void>("open_path", { path });
+}
+
+export async function revealItemInDir(path: string): Promise<void> {
+  return invoke<void>("reveal_item_in_dir", { path });
+}

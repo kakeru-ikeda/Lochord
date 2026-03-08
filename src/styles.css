@@ -255,6 +255,22 @@ code {
   font-size: 12px;
 }
 
+.playlist-item-action {
+  opacity: 0;
+  color: var(--text-muted);
+  padding: 2px;
+  border-radius: 3px;
+  transition: opacity 0.15s;
+}
+
+.playlist-item:hover .playlist-item-action {
+  opacity: 1;
+}
+
+.playlist-item-action:hover {
+  color: var(--text);
+}
+
 .playlist-item-delete {
   opacity: 0;
   color: var(--text-muted);

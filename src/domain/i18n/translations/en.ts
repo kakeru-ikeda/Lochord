@@ -17,6 +17,8 @@ export const en: Translations = {
     deleteConfirm: "Delete",
     deleteCancel: "Cancel",
     newNamePrompt: "New playlist name:",
+    openFileTitle: "Open file",
+    openFolderTitle: "Open folder",
   },
   tracklist: {
     selectPrompt: "← Select a playlist",

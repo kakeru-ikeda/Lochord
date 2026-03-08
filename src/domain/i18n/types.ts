@@ -15,6 +15,8 @@ export type Translations = {
     deleteConfirm: string;
     deleteCancel: string;
     newNamePrompt: string;
+    openFileTitle: string;
+    openFolderTitle: string;
   };
   tracklist: {
     selectPrompt: string;

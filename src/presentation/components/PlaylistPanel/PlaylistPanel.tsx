@@ -3,7 +3,8 @@ import { useLochordStore } from "../../../application/store/useLochordStore";
 import { playlistNameFromPath } from "../../../domain/rules/m3uPathResolver";
 import { ConfirmDialog } from "../ConfirmDialog/ConfirmDialog";
 import { useTranslation } from "../../hooks/useTranslation";
-import { Music, Plus, Trash2 } from "lucide-react";
+import { Music, Plus, Trash2, FileText, FolderOpen } from "lucide-react";
+import { openPath, revealItemInDir } from "../../../infrastructure/tauri/fileSystemAdapter";
 
 export function PlaylistPanel() {
   const playlists = useLochordStore((s) => s.playlists);
@@ -66,6 +67,26 @@ export function PlaylistPanel() {
                 {name}
                 {pl.isDirty && <span className="playlist-dirty-dot">●</span>}
               </span>
+              <button
+                className="playlist-item-action"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openPath(pl.path);
+                }}
+                title={t.playlist.openFileTitle}
+              >
+                <FileText size={12} />
+              </button>
+              <button
+                className="playlist-item-action"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  revealItemInDir(pl.path);
+                }}
+                title={t.playlist.openFolderTitle}
+              >
+                <FolderOpen size={12} />
+              </button>
               <button
                 className="playlist-item-delete"
                 onClick={(e) => {

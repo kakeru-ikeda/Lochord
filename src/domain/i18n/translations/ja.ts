@@ -17,6 +17,8 @@ export const ja: Translations = {
     deleteConfirm: "削除",
     deleteCancel: "キャンセル",
     newNamePrompt: "新しいプレイリスト名:",
+    openFileTitle: "ファイルを開く",
+    openFolderTitle: "フォルダを開く",
   },
   tracklist: {
     selectPrompt: "← プレイリストを選択してください",
