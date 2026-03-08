@@ -15,7 +15,8 @@ import { LibraryBrowser } from "../components/LibraryBrowser/LibraryBrowser";
 import { MetadataEditor } from "../components/MetadataEditor/MetadataEditor";
 import { SettingsModal } from "../components/SettingsModal/SettingsModal";
 import { useTranslation } from "../hooks/useTranslation";
-import { FolderOpen, Music, Settings, X } from "lucide-react";
+import { FolderOpen, Settings, X } from "lucide-react";
+import { AppIcon } from "../components/AppIcon/AppIcon";
 import type { Track } from "../../domain/entities/Track";
 
 export function MainPage() {
@@ -110,7 +111,7 @@ export function MainPage() {
         {/* Header */}
         <header className="app-header">
           <span className="app-logo">
-            <Music size={18} /> Lochord
+            <AppIcon size={18} /> Lochord
           </span>
           {musicRoot && (
             <span className="app-root-indicator" title={musicRoot}>
