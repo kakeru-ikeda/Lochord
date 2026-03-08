@@ -15,7 +15,7 @@ import { LibraryBrowser } from "../components/LibraryBrowser/LibraryBrowser";
 import { MetadataEditor } from "../components/MetadataEditor/MetadataEditor";
 import { SettingsModal } from "../components/SettingsModal/SettingsModal";
 import { useTranslation } from "../hooks/useTranslation";
-import { FolderOpen, Settings, X } from "lucide-react";
+import { FolderOpen, Music, Settings, X } from "lucide-react";
 import { AppIcon } from "../components/AppIcon/AppIcon";
 import type { Track } from "../../domain/entities/Track";
 
