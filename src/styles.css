@@ -148,8 +148,8 @@ code {
 }
 
 .left-pane {
-  width: 200px;
-  min-width: 160px;
+  width: 280px;
+  min-width: 220px;
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -182,8 +182,8 @@ code {
 }
 
 .right-pane {
-  width: 300px;
-  min-width: 260px;
+  width: 280px;
+  min-width: 220px;
   border-left: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -1438,6 +1438,7 @@ code {
   display: flex;
   flex-direction: column;
   gap: 3px;
+  min-width: 0;
 }
 
 .metadata-label > span {
@@ -1446,6 +1447,9 @@ code {
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .metadata-input {
